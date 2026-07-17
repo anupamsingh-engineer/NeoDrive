@@ -36,16 +36,16 @@ export const authApi = baseApi.injectEndpoints({
       query: () => ({ url: API_ROUTES.AUTH.REFRESH, method: "POST" }),
     }),
 
-    // POST /auth/logout
+    // POST /auth/logout — no invalidatesTags: local state is torn down (handleLogout +
+    // persistor.purge) right after this resolves, so refetching "current user" mid-teardown
+    // would just be a doomed GET/refresh pair against a session that's already gone.
     logout: builder.mutation({
       query: () => ({ url: API_ROUTES.AUTH.LOGOUT, method: "POST" }),
-      invalidatesTags: ["User"],
     }),
 
-    // POST /auth/logout-all
+    // POST /auth/logout-all — same reasoning as logout above.
     logoutAll: builder.mutation({
       query: () => ({ url: API_ROUTES.AUTH.LOGOUT_ALL, method: "POST" }),
-      invalidatesTags: ["User"],
     }),
 
     // POST /auth/forgot-password — always 200 (anti-enumeration)

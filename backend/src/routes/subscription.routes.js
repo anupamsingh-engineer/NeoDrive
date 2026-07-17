@@ -5,6 +5,7 @@ import { createSubscriptionSchema } from "../validators/subscription.schema.js";
 
 const router = express.Router();
 
+router.get("/plans", subscriptionController.getPlans);
 router.post("/", validate(createSubscriptionSchema), subscriptionController.createSubscription);
 
 export default router;

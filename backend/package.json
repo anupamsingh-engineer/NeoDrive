@@ -9,9 +9,9 @@
     "start": "node --no-deprecation --import ./instrumentation.js server.js",
     "worker": "node --no-deprecation --import ./instrumentation.js src/worker.js",
     "worker:dev": "node --watch --no-deprecation --import ./instrumentation.js --env-file=.env src/worker.js",
-    "migrate:up": "migrate-mongo up",
-    "migrate:down": "migrate-mongo down",
-    "migrate:status": "migrate-mongo status",
+    "migrate:up": "migrate-mongo up --file migrate-mongo-config.cjs",
+    "migrate:down": "migrate-mongo down --file migrate-mongo-config.cjs",
+    "migrate:status": "migrate-mongo status --file migrate-mongo-config.cjs",
     "format": "prettier --write ."
   },
   "keywords": [],

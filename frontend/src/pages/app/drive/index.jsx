@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { LayoutGroup, AnimatePresence } from "framer-motion";
 import {
@@ -40,7 +40,6 @@ const DrivePage = () => {
   const [viewMode, setViewMode] = useDriveViewMode();
   const { queue, uploadFiles, dismissItem } = useFileUpload(dirId);
 
-  const [trail, setTrail] = useState([]); // [{ id, name }]
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [renaming, setRenaming] = useState(null); // { type, id, name }
   const [deleting, setDeleting] = useState(null); // { type, id, name }
@@ -50,24 +49,12 @@ const DrivePage = () => {
 
   const directory = data?.data;
 
-  // Client-rebuilt breadcrumb trail (the API only returns a single-level parentDirId, no
-  // ancestor chain). Pushed to directly on folder-click navigation; reconciled here for
-  // browser back/forward and direct deep links, falling back to a single crumb in that case.
-  useEffect(() => {
-    if (!dirId) {
-      setTrail([]);
-      return;
-    }
-    setTrail((prev) => {
-      if (prev.length && prev[prev.length - 1].id === dirId) return prev;
-      const idx = prev.findIndex((c) => c.id === dirId);
-      if (idx !== -1) return prev.slice(0, idx + 1);
-      return directory?.name ? [{ id: dirId, name: directory.name }] : prev;
-    });
-  }, [dirId, directory?.name]);
+  // Breadcrumb trail comes straight from the API's ancestor chain (root-first) plus the
+  // current directory itself - always correct on back/forward, refresh, and deep links,
+  // since nothing is reconstructed or persisted client-side.
+  const trail = dirId && directory ? [...(directory.ancestors || []), { id: directory.id, name: directory.name }] : [];
 
-  const handleOpenDirectory = (id, name) => {
-    setTrail((prev) => [...prev, { id, name }]);
+  const handleOpenDirectory = (id) => {
     navigate(`/app/drive/${id}`);
   };
 

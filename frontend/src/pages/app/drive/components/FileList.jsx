@@ -51,7 +51,7 @@ const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
                   {item.isUploading && <span className="text-xs text-ink-faint">(processing…)</span>}
                 </button>
               </td>
-              <td className="px-4 py-3 text-sm text-ink-soft">{isDir ? "—" : formatBytes(item.size)}</td>
+              <td className="px-4 py-3 text-sm text-ink-soft">{formatBytes(item.size)}</td>
               <td className="px-4 py-3 text-sm text-ink-soft">{new Date(item.updatedAt).toLocaleString()}</td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-1">

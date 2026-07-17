@@ -412,11 +412,17 @@ Response `200`:
         "name": "Photos", "size": 3200000, "userId": "6a1b...",
         "parentDirId": "6a1b...", "createdAt": "...", "updatedAt": "..."
       }
+    ],
+    "ancestors": [
+      { "id": "6a1b...", "name": "root-jane@example.com" },
+      { "id": "6a3d...", "name": "Photos" }
     ]
   }
 }
 ```
-Note: fields appear twice (`_id` and `id`) — use whichever is more convenient, they're the same value. This response is cached server-side for 45s per directory; you'll never see it stale for longer than that after any write.
+Note: fields appear twice (`_id` and `id`) — use whichever is more convenient, they're the same value. This response is cached server-side for 45s per directory; you'll never see it stale for longer than that after any write (including up to 45s of a stale name in a descendant's `ancestors` after a rename higher up the tree).
+
+`ancestors` is root-first and does **not** include the directory itself — build a breadcrumb trail as `[...ancestors, {id, name}]` of the current directory. It's empty for the root directory. This is the full, authoritative path — don't try to reconstruct it client-side from navigation history, since that breaks on refresh/back-forward/deep-links.
 
 Errors: `404` — directory doesn't exist or isn't yours.
 

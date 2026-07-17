@@ -40,7 +40,7 @@ const Hero = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="mx-auto flex w-full max-w-page flex-col items-center gap-12 px-6 py-20 lg:py-28">
+    <section className="mx-auto flex w-full max-w-page flex-col items-center gap-12 px-6 py-20 lg:py-18">
       <motion.div {...staggerContainer(0.08)} className="flex max-w-2xl flex-col items-center gap-5 text-center">
         <motion.h1 variants={listItem} className="text-4xl font-semibold leading-tight text-ink sm:text-5xl">
           Your files, organized and always within reach.

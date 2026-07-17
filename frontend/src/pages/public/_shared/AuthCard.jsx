@@ -3,7 +3,8 @@ import { Cloud } from "lucide-react";
 import { fadeUp, staggerContainer, listItem } from "../../../motion";
 
 const AuthCard = ({ title, subtitle, children }) => (
-  <div className="flex flex-1 max-w-page mx-auto overflow-hidden">
+  // <div className="mx-auto flex w-full max-w-page items-center justify-between px-6">
+  <div className=" mx-auto flex flex-1 max-w-360 overflow-hidden w-full px-6">
     <div className="hidden w-[42%] shrink-0 flex-col justify-between bg-brand p-10 text-white lg:flex">
       <div className="flex items-center gap-2">
         <Cloud className="h-6 w-6" aria-hidden="true" />

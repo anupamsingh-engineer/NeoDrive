@@ -15,9 +15,10 @@ export async function getDirectory(userId, dirId, rootDirId) {
       throw ApiError.notFound("Directory not found or you do not have access to it!");
     }
 
-    const [files, directories] = await Promise.all([
+    const [files, directories, ancestors] = await Promise.all([
       fileRepository.findByParentDir(directoryData._id),
       directoryRepository.findChildDirectories(id),
+      directoryRepository.findAncestorChain(id),
     ]);
 
     return {
@@ -25,6 +26,7 @@ export async function getDirectory(userId, dirId, rootDirId) {
       id: directoryData._id,
       files: files.map((file) => ({ ...file, id: file._id })),
       directories: directories.map((dir) => ({ ...dir, id: dir._id })),
+      ancestors,
     };
   });
 }

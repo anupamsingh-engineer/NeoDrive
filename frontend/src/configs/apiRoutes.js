@@ -42,6 +42,7 @@ export const API_ROUTES = {
   },
 
   SUBSCRIPTIONS: {
+    PLANS: "subscriptions/plans",
     CREATE: "subscriptions",
   },
 };

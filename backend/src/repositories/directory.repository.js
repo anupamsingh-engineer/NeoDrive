@@ -16,6 +16,23 @@ export async function findChildDirectoryIds(parentDirId) {
   return Directory.find({ parentDirId }).select("_id").lean();
 }
 
+// Walks parentDirId up to the root, root-first, for building a breadcrumb trail. Does not
+// include dirId itself - only its ancestors.
+export async function findAncestorChain(dirId) {
+  const chain = [];
+  const start = await Directory.findById(dirId).select("parentDirId").lean();
+  let parentId = start?.parentDirId;
+
+  while (parentId) {
+    const dir = await Directory.findById(parentId).select("name parentDirId").lean();
+    if (!dir) break;
+    chain.push({ id: dir._id, name: dir.name });
+    parentId = dir.parentDirId;
+  }
+
+  return chain.reverse();
+}
+
 export async function insertOne({ name, parentDirId, userId, session }) {
   const [dir] = await Directory.create([{ name, parentDirId, userId }], { session });
   return dir;

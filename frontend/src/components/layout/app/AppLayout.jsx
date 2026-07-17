@@ -30,7 +30,7 @@ const AppLayout = () => {
         )}
 
         <div className="flex flex-1 flex-col">
-          <main className="flex-1 p-6">
+          <main className="flex flex-1 flex-col p-6">
             <PageTransition>
               <Outlet />
             </PageTransition>

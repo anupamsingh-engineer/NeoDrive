@@ -36,7 +36,7 @@ const UploadDropzone = ({ onFiles, children }) => {
 
   return (
     <div
-      className="relative"
+      className="relative flex flex-1 flex-col"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

@@ -12,12 +12,16 @@ export async function sendOtpEmail(email, otp) {
     </div>
   `;
 
-  await resend.emails.send({
+  // The Resend SDK resolves to { data, error } instead of throwing on API errors - without
+  // checking `error` explicitly, a rejected send (bad domain, invalid key, etc.) would
+  // silently fall through as if it succeeded.
+  const { error } = await resend.emails.send({
     from: env.resend.fromAddress,
     to: email,
     subject: "Storage App OTP",
     html,
   });
+  if (error) throw new Error(`Resend error: ${error.message}`);
   logger.info({ email }, "OTP email sent");
 }
 
@@ -30,11 +34,12 @@ export async function sendPasswordResetEmail(email, resetToken) {
     </div>
   `;
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: env.resend.fromAddress,
     to: email,
     subject: "Storage App Password Reset",
     html,
   });
+  if (error) throw new Error(`Resend error: ${error.message}`);
   logger.info({ email }, "Password reset email sent");
 }

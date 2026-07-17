@@ -35,8 +35,10 @@ npm install
 cp .env.example .env   # then fill in real secrets
 npm run migrate:up
 
-# 6. Start the app
+# 6. Start the app - in two separate terminals, both are required (the worker sends emails,
+#    processes S3 cleanup, and reconciles directory sizes; the API never does that itself)
 npm run dev
+npm run worker:dev
 ```
 
 ## Common errors and fixes
@@ -52,6 +54,8 @@ npm run dev
 | `docker compose` fails with `unexpected character "+" in variable name "..."`                                       | `.env`'s `CLOUDFRONT_PRIVATE_KEY` has real multi-line PEM content - Docker Compose's own `.env` parser (used for its variable substitution, separate from Node's `--env-file`) can't handle multi-line values | Store the private key as a single line with literal`\n` escapes instead of real line breaks (see `.env.example`) - `src/config/env.js` converts it back to real newlines at startup |
 | `unable to get image ... failed to connect to the docker API ... dockerDesktopLinuxEngine`                            | Docker Desktop the application isn't running (only the CLI is installed)                                                                                                                                              | Launch Docker Desktop and wait for its tray icon to show "running" (10-30s) before retrying                                                                                               |
 | Backend won't pick up a`.env` change after editing it                                                                 | `npm run dev` uses `node --watch`, which only reloads on JS file changes, not `.env`                                                                                                                            | Manually stop (`Ctrl+C`) and re-run `npm run dev`                                                                                                                                     |
+| OTP/password-reset/etc. emails never arrive, but the API returns 201 with no error                                    | Email sending happens in the **worker** process (BullMQ job consumer, `src/queues/email.worker.js`), not the API server - `npm run dev` only enqueues the job, it never sends anything itself                    | Run `npm run worker:dev` in a second terminal alongside `npm run dev`                                                                                                                    |
+| `migrate-mongo` fails with `No \`url\` defined in config file!` even though `DB_URL` is set correctly                 | Newer Node versions can `require()` an ESM module directly, but migrate-mongo v11's config loader only expects that to throw and falls back to `import()` - it silently gets an unwrapped `{ default: {...} }` and never finds `mongodb.url` | Already fixed - config lives in `migrate-mongo-config.cjs` (plain CommonJS) and the `migrate:*` npm scripts pass `--file migrate-mongo-config.cjs` explicitly                              |
 
 ## Verify replica set health directly
 

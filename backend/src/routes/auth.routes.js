@@ -3,7 +3,7 @@ import * as authController from "../controllers/auth.controller.js";
 import { validate } from "../middlewares/validate.middleware.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
 import { verifyCsrf } from "../middlewares/csrf.middleware.js";
-import { authLimiter } from "../middlewares/rateLimit.middleware.js";
+import { authLimiter, refreshLimiter } from "../middlewares/rateLimit.middleware.js";
 import {
   sendOtpSchema,
   verifyOtpSchema,
@@ -21,7 +21,7 @@ router.post("/verify-otp", authLimiter, validate(verifyOtpSchema), authControlle
 router.post("/register", authLimiter, validate(registerSchema), authController.register);
 router.post("/login", authLimiter, validate(loginSchema), authController.login);
 router.post("/google", authLimiter, validate(googleLoginSchema), authController.loginWithGoogle);
-router.post("/refresh", authLimiter, authController.refresh);
+router.post("/refresh", refreshLimiter, authController.refresh);
 router.post("/forgot-password", authLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
 router.post("/reset-password", authLimiter, validate(resetPasswordSchema), authController.resetPassword);
 

@@ -21,7 +21,6 @@ export async function requestOtp(email) {
   }
 
   const otp = generateOtp();
-  console.log("🚀 ~ requestOtp ~ otp:", otp)
   await otpRepository.upsertOtp(email, otp);
   await enqueueOtpEmail(email, otp);
 

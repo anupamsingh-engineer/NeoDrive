@@ -38,7 +38,7 @@ const UploadProgressTray = ({ items, onDismiss }) => {
                   )}
                 </span>
               </div>
-              {item.status === "uploading" && <ProgressBar percent={item.progress} />}
+              {item.status === "uploading" && <ProgressBar percent={item.progress} showLabel />}
             </motion.div>
           ))}
         </AnimatePresence>
