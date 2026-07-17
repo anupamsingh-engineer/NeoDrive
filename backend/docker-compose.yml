@@ -1,0 +1,112 @@
+services:
+  app:
+    build: .
+    ports:
+      - "4000:4000"
+    env_file: .env
+    environment:
+      DB_URL: mongodb://mongo:27017/storage-app?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["node", "--import", "./instrumentation.js", "src/worker.js"]
+    env_file: .env
+    environment:
+      DB_URL: mongodb://mongo:27017/storage-app?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Mongoose transactions (used for register / Google sign-up, which insert the user and
+  # their root directory atomically) require a replica set - even a single-node one - so
+  # the plain mongo:7 image needs replSet enabled plus a one-time rs.initiate().
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NOTE: initializes the replica set member address as "mongo:27017" - correct when app/worker
+  # also run inside this compose network. If you run app/worker natively on the host instead
+  # (hybrid dev - only db/cache in Docker) and get "getaddrinfo ENOTFOUND mongo", reconfigure
+  # the already-initialized set once via: mongosh mongodb://localhost:27017 --eval
+  # 'const c=rs.conf(); c.members[0].host="localhost:27017"; c.version+=1; rs.reconfig(c);'
+  mongo-init:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      [
+        "bash",
+        "-c",
+        "mongosh --host mongo --eval \"try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }\"",
+      ]
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+      - "4318:4318" # OTLP/http
+
+volumes:
+  mongo_data:
+  redis_data:
+  grafana_data:

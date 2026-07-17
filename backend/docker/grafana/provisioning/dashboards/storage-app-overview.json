@@ -1,0 +1,68 @@
+{
+  "title": "Storage App Backend - Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate (by status code)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(http_requests_total[1m])) by (status_code)", "legendFormat": "{{status_code}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "p95 request duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Auth login attempts",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum(rate(auth_login_attempts_total[5m])) by (method, result)", "legendFormat": "{{method}}/{{result}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "File uploads",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "rate(file_upload_initiated_total[5m])", "legendFormat": "initiated" },
+        { "expr": "rate(file_upload_completed_total[5m])", "legendFormat": "completed" },
+        { "expr": "sum(rate(file_upload_failed_total[5m])) by (reason)", "legendFormat": "failed/{{reason}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Queue depth",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [{ "expr": "queue_depth", "legendFormat": "{{queue}}" }]
+    },
+    {
+      "id": 6,
+      "title": "Cache hit ratio",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hit_total[5m])) by (cache) / (sum(rate(cache_hit_total[5m])) by (cache) + sum(rate(cache_miss_total[5m])) by (cache))",
+          "legendFormat": "{{cache}}"
+        }
+      ]
+    }
+  ]
+}
