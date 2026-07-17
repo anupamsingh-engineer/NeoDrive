@@ -37,16 +37,21 @@ transaction. If you hit `Transaction numbers are only allowed on a replica set m
 `ReplicaSetNoPrimary`, or `getaddrinfo ENOTFOUND mongo`, see
 **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for the exact commands.
 
-## Full stack (API + Mongo + Redis + Prometheus + Grafana + Jaeger)
+## Full stack (API + worker + Mongo + Redis + Prometheus + Grafana + Jaeger)
 
 ```bash
-docker compose up --build
+npm run docker:up      # first run / after code changes - rebuilds the image
+npm run docker:start   # subsequent runs - skips the rebuild, starts in ~2s
+npm run docker:logs    # tail app + worker
+npm run docker:down    # stop everything
 ```
 
 - API: http://localhost:4000
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3001 (anonymous viewer access)
 - Jaeger UI: http://localhost:16686
+
+See **[INSTALLATION.md](./INSTALLATION.md)** for the full walkthrough (env setup, startup order, verification checklist).
 
 ## Scripts
 

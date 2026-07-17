@@ -9,7 +9,7 @@ services:
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
-      mongo-init:
+      migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
@@ -24,11 +24,30 @@ services:
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
-      mongo-init:
+      migrate:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # The image's HEALTHCHECK curls :4000/healthz, which only the app process serves - the
+    # worker has no HTTP server, so that check can never pass. Disable it here rather than
+    # reporting a false "unhealthy".
+    healthcheck:
+      disable: true
+
+  # One-shot: creates indexes (unique email, OTP/refresh-token TTL cleanup, etc.) before
+  # app/worker start. migrate-mongo is a regular dependency (not dev-only) specifically so
+  # it's present in this same production image - see package.json.
+  migrate:
+    build: .
+    command: ["npm", "run", "migrate:up"]
+    env_file: .env
+    environment:
+      DB_URL: mongodb://mongo:27017/storage-app?replicaSet=rs0
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    restart: "no"
 
   # Mongoose transactions (used for register / Google sign-up, which insert the user and
   # their root directory atomically) require a replica set - even a single-node one - so
