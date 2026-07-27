@@ -32,12 +32,15 @@ npm run dev             # API on :4000
 npm run worker:dev      # background job worker (separate process)
 ```
 
-MongoDB must run as a replica set (even a single-node one) - `register`/Google-login use a
-transaction. If you hit `Transaction numbers are only allowed on a replica set member or mongos`,
-`ReplicaSetNoPrimary`, or `getaddrinfo ENOTFOUND mongo`, see
-**[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for the exact commands.
+MongoDB must run as a replica set - `register`/Google-login use a transaction. A MongoDB Atlas
+cluster (the default `DB_URL` in `.env.example`) already satisfies this out of the box. If you
+point `DB_URL` at a self-hosted Mongo instead and hit
+`Transaction numbers are only allowed on a replica set member or mongos` or `ReplicaSetNoPrimary`,
+see **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for the exact commands.
 
-## Full stack (frontend + API + worker + Mongo + Redis + Prometheus + Grafana + Jaeger)
+## Full stack (API + worker + Redis + Prometheus + Grafana + Jaeger)
+
+MongoDB is not containerized - `DB_URL` in `.env` points at your MongoDB Atlas cluster.
 
 ```bash
 npm run docker:up      # first run / after code changes - rebuilds the images
@@ -46,7 +49,6 @@ npm run docker:logs    # tail app + worker
 npm run docker:down    # stop everything
 ```
 
-- Frontend: http://localhost:5173
 - API: http://localhost:4000
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3001 (anonymous viewer access)

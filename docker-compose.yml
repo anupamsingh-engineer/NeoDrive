@@ -1,7 +1,7 @@
 # Thin root-level entry point - the real service definitions live in backend/docker-compose.yml
-# (frontend + app + worker + mongo + redis + prometheus + grafana + jaeger) so there's one
-# source of truth instead of two compose files drifting apart. `include:` rewrites that file's
-# relative paths (build contexts, env_file) as relative to backend/, so nothing there needs to
-# change just because this file also exists.
+# (app + worker + redis + prometheus + grafana + jaeger; MongoDB is Atlas-hosted, not
+# containerized) so there's one source of truth instead of two compose files drifting apart.
+# `include:` rewrites that file's relative paths (build contexts, env_file) as relative to
+# backend/, so nothing there needs to change just because this file also exists.
 include:
   - backend/docker-compose.yml

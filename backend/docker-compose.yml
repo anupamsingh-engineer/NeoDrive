@@ -4,33 +4,12 @@
 name: storage-app
 
 services:
-  # Vite bakes VITE_* vars into the static build at build time, not runtime, so they're build
-  # args here rather than environment: - see frontend/Dockerfile. VITE_API_BASE_URL/API_ORIGIN
-  # point at localhost:4000 (not app:4000) deliberately: they're read by the browser on the
-  # host, not by another container, and app's port 4000 is published to the host below.
-  # GOOGLE_CLIENT_ID/RAZORPAY_KEY_ID are reused as-is from .env - the frontend and backend
-  # must use the same values (see frontend/.env.example).
-  frontend:
-    build:
-      context: ../frontend
-      args:
-        VITE_API_BASE_URL: http://localhost:4000/
-        VITE_API_ORIGIN: http://localhost:4000
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-        VITE_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
-    ports:
-      - "5173:80"
-    depends_on:
-      - app
-    restart: unless-stopped
-
   app:
     build: .
     ports:
       - "4000:4000"
     env_file: .env
     environment:
-      DB_URL: mongodb://mongo:27017/storage-app?replicaSet=rs0
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
@@ -45,7 +24,6 @@ services:
     command: ["node", "--import", "./instrumentation.js", "src/worker.js"]
     env_file: .env
     environment:
-      DB_URL: mongodb://mongo:27017/storage-app?replicaSet=rs0
       REDIS_URL: redis://redis:6379
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
     depends_on:
@@ -62,51 +40,13 @@ services:
 
   # One-shot: creates indexes (unique email, OTP/refresh-token TTL cleanup, etc.) before
   # app/worker start. migrate-mongo is a regular dependency (not dev-only) specifically so
-  # it's present in this same production image - see package.json.
+  # it's present in this same production image - see package.json. DB_URL comes from .env
+  # (MongoDB Atlas), so there's no local mongo/mongo-init service to wait on.
   migrate:
     build: .
     command: ["npm", "run", "migrate:up"]
     env_file: .env
-    environment:
-      DB_URL: mongodb://mongo:27017/storage-app?replicaSet=rs0
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
     restart: "no"
-
-  # Mongoose transactions (used for register / Google sign-up, which insert the user and
-  # their root directory atomically) require a replica set - even a single-node one - so
-  # the plain mongo:7 image needs replSet enabled plus a one-time rs.initiate().
-  mongo:
-    image: mongo:7
-    command: ["--replSet", "rs0", "--bind_ip_all"]
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # NOTE: initializes the replica set member address as "mongo:27017" - correct when app/worker
-  # also run inside this compose network. If you run app/worker natively on the host instead
-  # (hybrid dev - only db/cache in Docker) and get "getaddrinfo ENOTFOUND mongo", reconfigure
-  # the already-initialized set once via: mongosh mongodb://localhost:27017 --eval
-  # 'const c=rs.conf(); c.members[0].host="localhost:27017"; c.version+=1; rs.reconfig(c);'
-  mongo-init:
-    image: mongo:7
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: "no"
-    entrypoint:
-      [
-        "bash",
-        "-c",
-        "mongosh --host mongo --eval \"try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }\"",
-      ]
 
   redis:
     image: redis:7-alpine
@@ -154,8 +94,6 @@ volumes:
   # Explicit names (matching what the "backend"-named project already created) so they stay
   # stable and keep their data now that the project itself is named "storage-app" above -
   # otherwise Compose would derive new, empty volumes from the new project name.
-  mongo_data:
-    name: backend_mongo_data
   redis_data:
     name: backend_redis_data
   grafana_data:

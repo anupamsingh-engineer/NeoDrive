@@ -1,16 +1,19 @@
 # Installation
 
-The whole app — frontend, API, background worker, MongoDB (replica set), Redis, and the
-observability stack (Prometheus, Grafana, Jaeger) — runs as one Docker Compose project. This is
-the fastest way to get a fully working instance with nothing installed locally except Docker.
+The backend — API, background worker, Redis, and the observability stack (Prometheus, Grafana,
+Jaeger) — runs as one Docker Compose project. MongoDB is not part of that stack: the app connects
+to a MongoDB Atlas cluster over the network via `DB_URL`. This is the fastest way to get a fully
+working instance with nothing installed locally except Docker.
 
 > Doing active backend development instead (hot reload on save)? See
-> **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for the hybrid setup
-> (Mongo/Redis in Docker, `npm run dev`/`worker:dev` natively on the host).
+> **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for running natively on the
+> host with `npm run dev`/`worker:dev`.
 
 ## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- A [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster (or any Mongo replica set
+  reachable over the network) and its connection string for `DB_URL`
 - An AWS S3 bucket + CloudFront distribution (for file storage) — see the main
   [README.md](./README.md) for what each `.env` variable needs
 - A [Resend](https://resend.com) account (for OTP/password-reset emails) and a
@@ -23,11 +26,13 @@ cd backend
 cp .env.example .env
 ```
 
-Fill in `.env` with real values. At minimum, for the app to start at all you need `DB_URL` and
-`REDIS_URL` left as their defaults (Docker Compose overrides these to point at its own `mongo`/
-`redis` containers automatically — see `docker-compose.yml`), plus JWT/CSRF secrets set to
-something random. Everything else (AWS, Resend, Razorpay, Google OAuth) can stay blank for a local
-smoke test — those features will just no-op or 4xx until configured, they won't crash the app.
+Fill in `.env` with real values. At minimum, for the app to start at all you need `DB_URL` set to
+your MongoDB Atlas connection string (e.g.
+`mongodb+srv://<user>:<password>@<cluster-host>/storage-app?retryWrites=true&w=majority`) and
+`REDIS_URL` left as its default (Docker Compose overrides it to point at its own `redis` container
+automatically — see `docker-compose.yml`), plus JWT/CSRF secrets set to something random.
+Everything else (AWS, Resend, Razorpay, Google OAuth) can stay blank for a local smoke test — those
+features will just no-op or 4xx until configured, they won't crash the app.
 
 `RESEND_FROM_ADDRESS` defaults to `onboarding@resend.dev`, Resend's built-in sandbox address —
 it works immediately with no domain setup, but can only deliver to the email address your Resend
@@ -46,38 +51,28 @@ for both the API and worker containers, then brings everything up in the right o
 
 ```mermaid
 flowchart LR
-    mongo["mongo"] --> mongo_init["mongo-init<br/>(one-time rs.initiate)"]
-    mongo_init --> migrate["migrate<br/>(one-time: create indexes)"]
+    atlas["MongoDB Atlas<br/>(external, via DB_URL)"] -. network .-> migrate["migrate<br/>(one-time: create indexes)"]
     migrate --> app["app :4000"]
     migrate --> worker["worker"]
     redis["redis"] --> app
     redis --> worker
-    app --> frontend["frontend :5173"]
     app --> prometheus["prometheus :9090"]
     prometheus --> grafana["grafana :3001"]
     app -. traces .-> jaeger["jaeger :16686"]
 ```
 
-`frontend` is a separate image (`frontend/Dockerfile`) — a Vite production build served by nginx,
-built with `VITE_API_BASE_URL`/`VITE_API_ORIGIN` pointed at `http://localhost:4000` (the browser's
-view of the API, not the Docker-internal `app:4000`) and `VITE_GOOGLE_CLIENT_ID`/
-`VITE_RAZORPAY_KEY_ID` reused directly from this same `.env`'s `GOOGLE_CLIENT_ID`/
-`RAZORPAY_KEY_ID` (frontend and backend must use the same values for both). If you change either
-of those two in `.env`, re-run `npm run docker:up` (not `docker:start`) so the frontend gets
-rebuilt with the new build args baked in.
-
-`mongo-init` and `migrate` are one-shot containers (`restart: "no"`) — they run once, exit
-successfully, and `app`/`worker` wait on that success (`depends_on: condition:
-service_completed_successfully`) before starting. You'll see them exit in `docker compose ps`;
-that's expected, not a crash.
+`migrate` is a one-shot container (`restart: "no"`) — it runs once, exits successfully, and
+`app`/`worker` wait on that success (`depends_on: condition: service_completed_successfully`)
+before starting. You'll see it exit in `docker compose ps`; that's expected, not a crash. It
+connects straight to Atlas using the `DB_URL` from `.env`, so there's no local Mongo container to
+wait on first.
 
 ## 3. Verify it's up
 
 | Service | URL | What you should see |
 |---|---|---|
-| Frontend | http://localhost:5173 | The app itself, served by nginx |
 | API | http://localhost:4000/healthz | `{"status":"ok"}` |
-| API readiness | http://localhost:4000/readyz | `{"status":"ok"}` (fails until Mongo/Redis are actually reachable) |
+| API readiness | http://localhost:4000/readyz | `{"status":"ok"}` (fails until Mongo Atlas/Redis are actually reachable) |
 | Prometheus | http://localhost:9090 | Prometheus UI; check **Status → Targets** shows `app` as `UP` |
 | Grafana | http://localhost:3001 | Pre-provisioned "Storage App Overview" dashboard (anonymous viewer access, no login needed) |
 | Jaeger | http://localhost:16686 | Select service `storage-app-backend` to see traces once you've hit a few API routes |
@@ -98,7 +93,8 @@ are untouched.
 
 See the **Common errors and fixes** table in
 [LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md) — most of those (Docker Desktop not
-running, CloudFront scheme errors, `.env` not reloading) apply here too. The one Docker-stack-only
-gotcha: don't run the `rs.reconfig()` command from that doc in this setup — it's only needed when
-the app runs natively outside Docker. Here, `app`/`worker` are containers on the same Docker
-network as `mongo`, so the replica set's default `mongo:27017` member address is already correct.
+running, CloudFront scheme errors, `.env` not reloading) apply here too. Mongo-replica-set errors
+(`ReplicaSetNoPrimary`, `getaddrinfo ENOTFOUND mongo`, etc.) don't apply to this setup since
+`DB_URL` points at MongoDB Atlas, not a container on the Docker network — if you see one, it means
+`DB_URL` in `.env` is wrong or the Atlas cluster isn't reachable (check IP access list/network
+egress), not a replica-set initialization problem.
