@@ -6,7 +6,7 @@ to a MongoDB Atlas cluster over the network via `DB_URL`. This is the fastest wa
 working instance with nothing installed locally except Docker.
 
 > Doing active backend development instead (hot reload on save)? See
-> **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for running natively on the
+> **[local-dev-troubleshooting.md](./local-dev-troubleshooting.md)** for running natively on the
 > host with `npm run dev`/`worker:dev`.
 
 ## Prerequisites
@@ -15,7 +15,7 @@ working instance with nothing installed locally except Docker.
 - A [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster (or any Mongo replica set
   reachable over the network) and its connection string for `DB_URL`
 - An AWS S3 bucket + CloudFront distribution (for file storage) — see the main
-  [README.md](./README.md) for what each `.env` variable needs
+  [README.md](../README.md) for what each `.env` variable needs
 - A [Resend](https://resend.com) account (for OTP/password-reset emails) and a
   [Razorpay](https://razorpay.com) account (for subscription billing), if you need those features
 
@@ -69,13 +69,13 @@ wait on first.
 
 ## 3. Verify it's up
 
-| Service | URL | What you should see |
-|---|---|---|
-| API | http://localhost:4000/healthz | `{"status":"ok"}` |
-| API readiness | http://localhost:4000/readyz | `{"status":"ok"}` (fails until Mongo Atlas/Redis are actually reachable) |
-| Prometheus | http://localhost:9090 | Prometheus UI; check **Status → Targets** shows `app` as `UP` |
-| Grafana | http://localhost:3001 | Pre-provisioned "Storage App Overview" dashboard (anonymous viewer access, no login needed) |
-| Jaeger | http://localhost:16686 | Select service `storage-app-backend` to see traces once you've hit a few API routes |
+| Service       | URL                           | What you should see                                                                         |
+| ------------- | ----------------------------- | ------------------------------------------------------------------------------------------- |
+| API           | http://localhost:4000/healthz | `{"status":"ok"}`                                                                         |
+| API readiness | http://localhost:4000/readyz  | `{"status":"ok"}` (fails until Mongo Atlas/Redis are actually reachable)                  |
+| Prometheus    | http://localhost:9090         | Prometheus UI; check**Status → Targets** shows `app` as `UP`                     |
+| Grafana       | http://localhost:3001         | Pre-provisioned "Storage App Overview" dashboard (anonymous viewer access, no login needed) |
+| Jaeger        | http://localhost:16686        | Select service`storage-app-backend` to see traces once you've hit a few API routes        |
 
 ```bash
 npm run docker:logs   # tail app + worker logs
@@ -92,7 +92,7 @@ are untouched.
 ## Common issues
 
 See the **Common errors and fixes** table in
-[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md) — most of those (Docker Desktop not
+[local-dev-troubleshooting.md](./local-dev-troubleshooting.md) — most of those (Docker Desktop not
 running, CloudFront scheme errors, `.env` not reloading) apply here too. Mongo-replica-set errors
 (`ReplicaSetNoPrimary`, `getaddrinfo ENOTFOUND mongo`, etc.) don't apply to this setup since
 `DB_URL` points at MongoDB Atlas, not a container on the Docker network — if you see one, it means

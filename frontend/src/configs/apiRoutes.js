@@ -1,6 +1,6 @@
 // All paths are relative to the API base URL (e.g. "http://localhost:4000/")
 // Pattern: no leading slash so fetchBaseQuery joinUrls works correctly.
-// Mirrors backend/FRONTEND_INTEGRATION_GUIDE.md exactly.
+// Mirrors backend/docs/frontend-integration-guide.md exactly.
 
 export const API_ROUTES = {
   HEALTH: "healthz",

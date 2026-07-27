@@ -6,8 +6,11 @@ name: storage-app
 services:
   app:
     build: .
+    # Loopback-only: in production, nginx (host-installed, see docs/ec2-deployment.md) is the
+    # only thing that should reach this port directly - it's never exposed to the network
+    # interface itself. Still reachable at http://localhost:4000 for local dev either way.
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
     env_file: .env
     environment:
       REDIS_URL: redis://redis:6379

@@ -7,7 +7,7 @@ import AuthCard from "../_shared/AuthCard";
 import { Button, Input, InlineAlert } from "../../../components/ui";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Mirrors the backend's password.schema.js rules exactly (see FRONTEND_INTEGRATION_GUIDE.md).
+// Mirrors the backend's password.schema.js rules exactly (see backend/docs/frontend-integration-guide.md).
 const PASSWORD_RULES = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/;
 
 const stepVariants = {

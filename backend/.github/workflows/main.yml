@@ -1,46 +1,50 @@
-name: Deploy StorageApp Backend
+name: Deploy StorageApp Backend (Docker)
 
-on: [push, workflow_dispatch]
+# Full walkthrough, including the one-time EC2/nginx/certbot setup and the repo secrets this
+# workflow needs, is in backend/docs/ec2-deployment.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      SSH_HOST: 13.203.175.237
-      SSH_USER: ubuntu
-      REMOTE_APP_DIR: /home/ubuntu/stroageApp-backend
-      PM2_APP_NAME: storageApp
-
     steps:
-      # 1. Setup SSH key and known_hosts
+      # 1. Setup SSH key and known_hosts. SSH_PRIVATE_KEY is the EC2 access key (from launching
+      #    the instance) that lets this runner log in as EC2_USER - not the separate GitHub
+      #    deploy key generated on the box itself for `git pull` (see docs/ec2-deployment.md
+      #    step 4), which never leaves the server.
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-          # Add server host key so SSH does not ask for confirmation
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
-
-      # 2. Deploy to remote server
-      - name: Deploy backend on EC2
+      # 2. Deploy: pull the latest code and bring the stack up via Docker Compose. `migrate`
+      #    and `redis` come up automatically as dependencies of app/worker even though they're
+      #    not named explicitly (see docs/ec2-deployment.md "Instance sizing" for why this
+      #    workflow deploys the minimal service set rather than the full observability stack).
+      - name: Deploy on EC2
+        env:
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USER }}
+          REMOTE_APP_DIR: ${{ secrets.EC2_APP_DIR }}
         run: |
-          ssh "${SSH_USER}@${SSH_HOST}" 'bash -s' << 'EOF'
+          ssh -i ~/.ssh/id_rsa "${SSH_USER}@${SSH_HOST}" "bash -s" << EOF
             set -e
 
-            cd /home/ubuntu/stroageApp-backend
-            git pull
+            cd ${REMOTE_APP_DIR}
+            git pull --ff-only origin main
 
-            echo "Installing backend dependencies (npm ci)..."
-            npm ci --no-audit --no-fund
+            echo "Building and starting containers..."
+            docker compose up --build -d app worker
 
-            echo "Running database migrations..."
-            npm run migrate:up
+            echo "Pruning dangling images from the previous build..."
+            docker image prune -f
 
-            echo "Reloading PM2 processes (app + worker)..."
-            pm2 reload storageApp
-            pm2 reload storageApp-worker || pm2 start src/worker.js --name storageApp-worker --node-args="--import ./instrumentation.js"
-
-            echo "Backend Deployed Successfully..."
+            echo "Backend deployed successfully."
           EOF
