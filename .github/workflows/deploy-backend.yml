@@ -2,10 +2,19 @@ name: Deploy StorageApp Backend (Docker)
 
 # Full walkthrough, including the one-time EC2/nginx/certbot setup and the repo secrets this
 # workflow needs, is in backend/docs/ec2-deployment.md.
+#
+# This lives at the repo ROOT .github/workflows/ (not backend/.github/workflows/) because that's
+# the only place GitHub Actions ever looks - it does not recurse into subdirectories. The `paths`
+# filter below is what actually makes this a "backend-only" workflow: a push that only touches
+# frontend/** won't trigger this run at all. See deploy-frontend.yml for its mirror image, and
+# frontend/docs/build-and-deploy.md for the monorepo-triggering explanation in full.
 
 on:
   push:
     branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
 
 jobs:

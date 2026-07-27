@@ -268,9 +268,20 @@ production frontend origin, respectively.
 ## 9. GitHub Actions: deploy on every push
 
 The workflow lives at
-[`backend/.github/workflows/main.yml`](../.github/workflows/main.yml). It SSHes into the EC2 box
-using the *EC2 access key* from step 1 (not the GitHub deploy key from step 4 — that one never
-leaves the box) and re-runs the same commands you ran by hand in steps 4/6:
+[`.github/workflows/deploy-backend.yml`](../../.github/workflows/deploy-backend.yml) — at the
+**repo root**, not `backend/.github/workflows/`, because GitHub Actions only ever scans
+`.github/workflows/` at the top of the repository; it does not recurse into subfolders. This repo
+also has a frontend deploy workflow (`.github/workflows/deploy-frontend.yml`, see
+[frontend/docs/s3-cloudfront-deployment.md](../../frontend/docs/s3-cloudfront-deployment.md)) —
+both live side by side at the root, and each only fires for its own half of the repo via an
+`on.push.paths: ["backend/**"]` / `["frontend/**"]` filter. Push something that only touches
+`frontend/`, and this backend workflow simply doesn't run (and vice versa) — see
+[frontend/docs/build-and-deploy.md](../../frontend/docs/build-and-deploy.md#how-two-workflows-share-one-repo)
+for the full explanation of how that detection works.
+
+This workflow SSHes into the EC2 box using the *EC2 access key* from step 1 (not the GitHub
+deploy key from step 4 — that one never leaves the box) and re-runs the same commands you ran by
+hand in steps 4/6:
 
 ```
 git pull --ff-only  →  docker compose up --build -d app worker  →  docker image prune -f

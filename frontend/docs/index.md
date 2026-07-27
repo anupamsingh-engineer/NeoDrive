@@ -24,7 +24,8 @@ assume you've read that backend's [authentication.md](../../backend/docs/authent
 | [analytics.md](./analytics.md) | The multi-provider analytics module (GA4/GTM/PostHog/Mixpanel/Hotjar), event catalog, and a real gap worth knowing about |
 | [styling.md](./styling.md) | Tailwind v4 design tokens, the custom UI component library (no external UI kit), motion/animation primitives |
 | [environment-variables.md](./environment-variables.md) | Every `VITE_*` var, what it does, build-time vs runtime, and two vars that are wired but not actually read yet |
-| [build-and-deploy.md](./build-and-deploy.md) | Vite build/chunking, the Docker multi-stage build, `nginx.conf`, CSP, deploying alongside the backend |
+| [build-and-deploy.md](./build-and-deploy.md) | Vite build/chunking, the Docker multi-stage build, `nginx.conf`, CSP, and how two GitHub Actions workflows share one repo |
+| [s3-cloudfront-deployment.md](./s3-cloudfront-deployment.md) | Production deployment: S3 + CloudFront + ACM SSL on a custom domain + GitHub Actions CI/CD |
 | [contributing.md](./contributing.md) | Real component/hook conventions used in this codebase, linting, PR expectations |
 
 ## Conventions

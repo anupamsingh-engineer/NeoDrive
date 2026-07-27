@@ -19,7 +19,10 @@ code (not the generic template this project started from).
   [docs/authentication.md](./docs/authentication.md))
 - **Tailwind CSS v4** (CSS-first `@theme` config, no `tailwind.config.js`) + a from-scratch UI
   component library (no external UI kit) + framer-motion (see [docs/styling.md](./docs/styling.md))
-- **Vite** for dev/build, Docker + nginx for production serving (see
+- **Vite** for dev/build; production deploys as a static site on **S3 + CloudFront** with a
+  custom domain and ACM-issued TLS (see
+  [docs/s3-cloudfront-deployment.md](./docs/s3-cloudfront-deployment.md)); Docker + nginx also
+  available for local/alternative container-based serving (see
   [docs/build-and-deploy.md](./docs/build-and-deploy.md))
 
 ## Setup
@@ -55,7 +58,8 @@ The backend must be running first (`../backend`, default `http://localhost:4000`
 | [docs/analytics.md](./docs/analytics.md) | The multi-provider analytics module, event catalog, and a real gap (tracking isn't called anywhere yet) |
 | [docs/styling.md](./docs/styling.md) | Tailwind design tokens, the UI component library, motion primitives |
 | [docs/environment-variables.md](./docs/environment-variables.md) | Every `VITE_*` var — including two that are wired but not actually read |
-| [docs/build-and-deploy.md](./docs/build-and-deploy.md) | Vite build/chunking, Docker multi-stage build, `nginx.conf`, CSP |
+| [docs/build-and-deploy.md](./docs/build-and-deploy.md) | Vite build/chunking, Docker multi-stage build, `nginx.conf`, CSP, how the two repo-root GitHub Actions workflows avoid triggering each other |
+| [docs/s3-cloudfront-deployment.md](./docs/s3-cloudfront-deployment.md) | Production deployment: S3 (private, OAC) + CloudFront + ACM SSL + GitHub Actions CI/CD |
 | [docs/contributing.md](./docs/contributing.md) | Real conventions used in this codebase — how to add an endpoint/page, state rules, what not to do |
 
 This app is the client half of a two-part system — see

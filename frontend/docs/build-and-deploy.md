@@ -102,13 +102,68 @@ If you add a new third-party script (analytics providers beyond PostHog/Mixpanel
 payment provider, etc. — see [analytics.md](./analytics.md#ga4gtm-script-loading--also-not-wired-yet)),
 it needs a corresponding CSP entry here or the browser will silently block it.
 
-## Deploying alongside the backend
+## Production deployment: S3 + CloudFront
 
-This repo's backend has a full EC2 + Docker + nginx + Let's Encrypt + GitHub Actions deployment
-guide at **[../../backend/docs/ec2-deployment.md](../../backend/docs/ec2-deployment.md)**, serving
-`api.storage.anupamsingh.xyz`. There is currently no equivalent frontend-specific deployment guide
-in this repo — the pattern would be the same shape (build this image with the production
-`VITE_*` build args pointed at that API origin, run it as its own container, front it with its own
-nginx site block + certbot certificate on a `storage.anupamsingh.xyz` — or whatever the chosen
-frontend hostname is), but it hasn't been written up step-by-step the way the backend's has. If you
-set this up, consider adding a `frontend-deployment.md` here following the same structure.
+This app deploys as a static site — S3 (private, via Origin Access Control) behind CloudFront,
+TLS from an ACM certificate on `storage.anupamsingh.xyz`, redeployed automatically by GitHub
+Actions on every push to `frontend/**`. The Docker image and `nginx.conf` above are still real and
+useful (local `docker compose` testing, or an alternative container-based deploy target), but
+**production uses the static-hosting path, not this container** — the Dockerfile isn't part of
+the S3/CloudFront pipeline at all; only `npm run build`'s `dist/` output is.
+
+Full step-by-step guide, including the one-time AWS setup (S3 bucket, ACM certificate — which
+**must** be requested in `us-east-1` for CloudFront regardless of your other resources' region,
+CloudFront distribution with SPA-routing error pages, IAM least-privilege deploy user) and the
+GitHub Actions workflow itself:
+**[s3-cloudfront-deployment.md](./s3-cloudfront-deployment.md)**.
+
+This repo's backend, by contrast, deploys as a container on EC2 — see
+[../../backend/docs/ec2-deployment.md](../../backend/docs/ec2-deployment.md), serving
+`api.storage.anupamsingh.xyz`. Two completely different deployment models, two separate GitHub
+Actions workflows, living side by side in the same repo — see below for how each only fires for
+its own half.
+
+## How two workflows share one repo
+
+Both deploy workflows live at the repo root, `.github/workflows/` — `deploy-frontend.yml` and
+`deploy-backend.yml` (in `../../backend/docs/ec2-deployment.md`). **This is the only place GitHub
+Actions ever looks for workflow files** — a `.github/workflows/` folder nested inside `frontend/`
+or `backend/` would silently never run (this repo's backend workflow originally lived at
+`backend/.github/workflows/main.yml` and was moved to the root for exactly this reason).
+
+By default, `on: push: branches: [main]` fires a workflow for **every** push to that branch,
+regardless of which files changed — a docs typo fixed in `backend/` would otherwise also rebuild
+and redeploy the frontend, and vice versa. Both workflows add an `on.push.paths` filter to scope
+themselves to their own half of the repo:
+
+```yaml
+# deploy-frontend.yml
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+```
+
+```yaml
+# deploy-backend.yml
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+```
+
+GitHub evaluates `paths` against the full list of files changed in the push (across all commits
+being pushed, not just the latest one) — if **at least one** changed file matches a `paths`
+pattern, that workflow runs; if none match, it's skipped entirely (shows as "skipped", not
+"failed", in the Actions tab). A commit that touches both `frontend/` and `backend/` in the same
+push triggers both workflows, independently and in parallel — there's no coordination between
+them, which is correct here since they deploy to entirely separate infrastructure (S3/CloudFront
+vs. EC2) that doesn't need to move in lockstep.
+
+The workflow file itself is included in its own `paths` list so that editing the workflow's
+logic — not just app code — also triggers a run, letting you verify a workflow change actually
+works without needing an unrelated app-code change to trigger it.
