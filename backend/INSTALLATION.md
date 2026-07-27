@@ -1,8 +1,8 @@
 # Installation
 
-The whole backend — API, background worker, MongoDB (replica set), Redis, and the observability
-stack (Prometheus, Grafana, Jaeger) — runs as one Docker Compose project. This is the fastest way
-to get a fully working instance with nothing installed locally except Docker.
+The whole app — frontend, API, background worker, MongoDB (replica set), Redis, and the
+observability stack (Prometheus, Grafana, Jaeger) — runs as one Docker Compose project. This is
+the fastest way to get a fully working instance with nothing installed locally except Docker.
 
 > Doing active backend development instead (hot reload on save)? See
 > **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for the hybrid setup
@@ -52,10 +52,19 @@ flowchart LR
     migrate --> worker["worker"]
     redis["redis"] --> app
     redis --> worker
+    app --> frontend["frontend :5173"]
     app --> prometheus["prometheus :9090"]
     prometheus --> grafana["grafana :3001"]
     app -. traces .-> jaeger["jaeger :16686"]
 ```
+
+`frontend` is a separate image (`frontend/Dockerfile`) — a Vite production build served by nginx,
+built with `VITE_API_BASE_URL`/`VITE_API_ORIGIN` pointed at `http://localhost:4000` (the browser's
+view of the API, not the Docker-internal `app:4000`) and `VITE_GOOGLE_CLIENT_ID`/
+`VITE_RAZORPAY_KEY_ID` reused directly from this same `.env`'s `GOOGLE_CLIENT_ID`/
+`RAZORPAY_KEY_ID` (frontend and backend must use the same values for both). If you change either
+of those two in `.env`, re-run `npm run docker:up` (not `docker:start`) so the frontend gets
+rebuilt with the new build args baked in.
 
 `mongo-init` and `migrate` are one-shot containers (`restart: "no"`) — they run once, exit
 successfully, and `app`/`worker` wait on that success (`depends_on: condition:
@@ -66,6 +75,7 @@ that's expected, not a crash.
 
 | Service | URL | What you should see |
 |---|---|---|
+| Frontend | http://localhost:5173 | The app itself, served by nginx |
 | API | http://localhost:4000/healthz | `{"status":"ok"}` |
 | API readiness | http://localhost:4000/readyz | `{"status":"ok"}` (fails until Mongo/Redis are actually reachable) |
 | Prometheus | http://localhost:9090 | Prometheus UI; check **Status → Targets** shows `app` as `UP` |

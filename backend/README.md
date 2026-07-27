@@ -37,15 +37,16 @@ transaction. If you hit `Transaction numbers are only allowed on a replica set m
 `ReplicaSetNoPrimary`, or `getaddrinfo ENOTFOUND mongo`, see
 **[LOCAL_DEV_TROUBLESHOOTING.md](./LOCAL_DEV_TROUBLESHOOTING.md)** for the exact commands.
 
-## Full stack (API + worker + Mongo + Redis + Prometheus + Grafana + Jaeger)
+## Full stack (frontend + API + worker + Mongo + Redis + Prometheus + Grafana + Jaeger)
 
 ```bash
-npm run docker:up      # first run / after code changes - rebuilds the image
+npm run docker:up      # first run / after code changes - rebuilds the images
 npm run docker:start   # subsequent runs - skips the rebuild, starts in ~2s
 npm run docker:logs    # tail app + worker
 npm run docker:down    # stop everything
 ```
 
+- Frontend: http://localhost:5173
 - API: http://localhost:4000
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3001 (anonymous viewer access)

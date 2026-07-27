@@ -1,4 +1,29 @@
+# Pinned so this project resolves to the same name (and therefore the same containers/volumes)
+# whether you run `docker compose` from here directly or from the repo root via its
+# docker-compose.yml `include:`, which would otherwise default to "storage-app" instead.
+name: storage-app
+
 services:
+  # Vite bakes VITE_* vars into the static build at build time, not runtime, so they're build
+  # args here rather than environment: - see frontend/Dockerfile. VITE_API_BASE_URL/API_ORIGIN
+  # point at localhost:4000 (not app:4000) deliberately: they're read by the browser on the
+  # host, not by another container, and app's port 4000 is published to the host below.
+  # GOOGLE_CLIENT_ID/RAZORPAY_KEY_ID are reused as-is from .env - the frontend and backend
+  # must use the same values (see frontend/.env.example).
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:4000/
+        VITE_API_ORIGIN: http://localhost:4000
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+    ports:
+      - "5173:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
   app:
     build: .
     ports:
@@ -126,6 +151,12 @@ services:
       - "4318:4318" # OTLP/http
 
 volumes:
+  # Explicit names (matching what the "backend"-named project already created) so they stay
+  # stable and keep their data now that the project itself is named "storage-app" above -
+  # otherwise Compose would derive new, empty volumes from the new project name.
   mongo_data:
+    name: backend_mongo_data
   redis_data:
+    name: backend_redis_data
   grafana_data:
+    name: backend_grafana_data
