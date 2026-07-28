@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Crown, LogOut } from "lucide-react";
@@ -13,6 +14,23 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const { data, isLoading } = useGetCurrentUserQuery();
   const user = data?.data;
+  // logoutUser/logoutAllUser are plain thunks, not RTK Query mutations, so there's no
+  // built-in isLoading to disable the button with — without this, a rapid double/triple-click
+  // fires one POST /auth/logout per click instead of one, each independently racing through
+  // baseQuery's reauth logic.
+  const [signingOut, setSigningOut] = useState(null); // null | "one" | "all"
+
+  const handleSignOut = () => {
+    if (signingOut) return;
+    setSigningOut("one");
+    dispatch(logoutUser());
+  };
+
+  const handleSignOutAll = () => {
+    if (signingOut) return;
+    setSigningOut("all");
+    dispatch(logoutAllUser());
+  };
 
   if (isLoading) {
     return (
@@ -56,10 +74,24 @@ const ProfilePage = () => {
       <Card>
         <p className="mb-4 text-sm font-semibold text-ink">Session</p>
         <div className="flex flex-col gap-2">
-          <Button variant="secondary" icon={LogOut} block onClick={() => dispatch(logoutUser())}>
+          <Button
+            variant="secondary"
+            icon={LogOut}
+            block
+            loading={signingOut === "one"}
+            disabled={!!signingOut}
+            onClick={handleSignOut}
+          >
             Sign Out
           </Button>
-          <Button variant="danger" icon={LogOut} block onClick={() => dispatch(logoutAllUser())}>
+          <Button
+            variant="danger"
+            icon={LogOut}
+            block
+            loading={signingOut === "all"}
+            disabled={!!signingOut}
+            onClick={handleSignOutAll}
+          >
             Sign Out Everywhere
           </Button>
         </div>

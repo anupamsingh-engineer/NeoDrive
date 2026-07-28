@@ -21,7 +21,7 @@ export async function requestOtp(email) {
   }
 
   const otp = generateOtp();
-  await otpRepository.upsertOtp(email, otp);
+  await otpRepository.upsertOtp(email, otp); //{ upsert: true } — if no document matches (first time this email has ever requested an OTP), create one. If a document already exists (they requested an OTP before), update it in place instead of erroring or creating a duplicate.
   await enqueueOtpEmail(email, otp);
 
   return { message: `OTP sent successfully to ${email}` };

@@ -9,7 +9,7 @@ Code: `src/router/PagesRouter.jsx`, `src/router/routes/PrivateRoutes.jsx`,
 /                                   → PublicLayout
   /  or  /home                        Home              (marketing landing page)
   /auth/login                          Login
-  /auth/register                       Register           (OTP-based signup)
+  /auth/register                       Register           (3-step OTP signup: email -> verify code -> details)
   /auth/forgot-password                ForgotPassword
   /auth/reset-password                 ResetPassword       (?token= from the email link)
   *                                     PageNotFound
@@ -53,7 +53,7 @@ split exactly (`GET /users` → Admin+Manager; `DELETE /users/:id` → Admin onl
 |---|---|---|
 | **Home** (`pages/public/Home`) | `/`, `/home` | Marketing landing page — `Hero`, `Features`, `PricingTeaser`, `CtaSection` components |
 | **Login** (`pages/public/Login`) | `/auth/login` | Email/password form + `GoogleSignInButton`; redirects to `location.state.from` after success (set by `AuthGuard` when it bounced an unauthenticated visitor here) |
-| **Register** (`pages/public/Register`) | `/auth/register` | OTP-based signup: email → `sendOtp` → 6-digit code + name/password → `register` (auto-authenticates) |
+| **Register** (`pages/public/Register`) | `/auth/register` | 3-step OTP signup: email (`sendOtp`) → code (`verifyOtp`, doesn't consume it) → name/password (`register`, consumes it, auto-authenticates). Split into three screens specifically so a wrong/expired code doesn't discard an already-filled-in name/password form — see [authentication.md](./authentication.md#login--register--google-sign-in) |
 | **ForgotPassword** | `/auth/forgot-password` | Submits an email to `POST /auth/forgot-password`; always shows the same generic success message regardless of whether the email exists (matches the backend's anti-enumeration design) |
 | **ResetPassword** | `/auth/reset-password` | Reads `?token=` from the URL (the link sent by email), submits a new password to `POST /auth/reset-password` |
 

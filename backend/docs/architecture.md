@@ -58,21 +58,21 @@ See `app.js` for the exact order — it matters (e.g. webhooks must be mounted b
 These show up in more than one feature; each is explained in depth in its own doc, but here's
 the map:
 
-| Pattern | Used by | Deep dive |
-|---|---|---|
-| **Repository pattern** (only repositories touch Mongoose) | every feature | this doc |
-| **`asyncHandler` wrapper** — every controller/middleware that can `await` is wrapped so a thrown/rejected error reaches `next()` instead of crashing the process | every route | [error-handling.md](./error-handling.md) |
-| **`ApiError` + one central error handler** | every feature | [error-handling.md](./error-handling.md) |
-| **Cache-aside with fail-open Redis** | user profile, directory listings | [caching.md](./caching.md) |
-| **Atomic compare-and-increment quota reservation** (no read-then-write race) | file upload, directory delete | [files.md](./files.md), [directories.md](./directories.md) |
-| **Two-phase commit** (reserve → external side effect → confirm, with rollback on failure) | file upload (`uploadInitiate`/`uploadComplete`) | [files.md](./files.md) |
-| **Refresh-token rotation with compare-and-swap + reuse detection** | auth sessions | [authentication.md](./authentication.md) |
-| **Mongoose transactions** for the one place two collections must be created atomically (user + their root directory) | register, Google sign-up | [authentication.md](./authentication.md) |
-| **Signed double-submit CSRF cookie** | all cookie-authenticated mutations | [security.md](./security.md) |
-| **BullMQ producer/consumer split** (API process only enqueues; a separate `worker.js` process consumes) | email, S3 cleanup, nightly reconciliation | [background-jobs.md](./background-jobs.md) |
-| **Direct-to-storage uploads** (client PUTs straight to S3 via a presigned URL; the API server never sees file bytes) | file upload | [files.md](./files.md) |
-| **Soft delete** (`deleted: true` flag, not a real document removal) | users | [users.md](./users.md) |
-| **Storage provider interface** (`storage.interface.js` documents the contract; `s3.storage.js` + `cloudfront.storage.js` implement it) | files | [files.md](./files.md) |
+| Pattern                                                                                                                                                                       | Used by                                             | Deep dive                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------- |
+| **Repository pattern** (only repositories touch Mongoose)                                                                                                               | every feature                                       | this doc                                                 |
+| **`asyncHandler` wrapper** — every controller/middleware that can `await` is wrapped so a thrown/rejected error reaches `next()` instead of crashing the process | every route                                         | [error-handling.md](./error-handling.md)                  |
+| **`ApiError` + one central error handler**                                                                                                                            | every feature                                       | [error-handling.md](./error-handling.md)                  |
+| **Cache-aside with fail-open Redis**                                                                                                                                    | user profile, directory listings                    | [caching.md](./caching.md)                                |
+| **Atomic compare-and-increment quota reservation** (no read-then-write race)                                                                                            | file upload, directory delete                       | [files.md](./files.md), [directories.md](./directories.md) |
+| **Two-phase commit** (reserve → external side effect → confirm, with rollback on failure)                                                                             | file upload (`uploadInitiate`/`uploadComplete`) | [files.md](./files.md)                                    |
+| **Refresh-token rotation with compare-and-swap + reuse detection**                                                                                                      | auth sessions                                       | [authentication.md](./authentication.md)                  |
+| **Mongoose transactions** for the one place two collections must be created atomically (user + their root directory)                                                    | register, Google sign-up                            | [authentication.md](./authentication.md)                  |
+| **Signed double-submit CSRF cookie**                                                                                                                                    | all cookie-authenticated mutations                  | [security.md](./security.md)                              |
+| **BullMQ producer/consumer split** (API process only enqueues; a separate `worker.js` process consumes)                                                               | email, S3 cleanup, nightly reconciliation           | [background-jobs.md](./background-jobs.md)                |
+| **Direct-to-storage uploads** (client PUTs straight to S3 via a presigned URL; the API server never sees file bytes)                                                    | file upload                                         | [files.md](./files.md)                                    |
+| **Soft delete** (`deleted: true` flag, not a real document removal)                                                                                                   | users                                               | [users.md](./users.md)                                    |
+| **Storage provider interface** (`storage.interface.js` documents the contract; `s3.storage.js` + `cloudfront.storage.js` implement it)                            | files                                               | [files.md](./files.md)                                    |
 
 ## Folder map
 

@@ -30,12 +30,25 @@ re-derived by actually asking the server.
    restores the `user` object (name/email/picture/role/maxStorageInBytes — nothing secret, purely
    for instant paint) and forces `isAuthenticated: false, isAuthLoading: true` regardless of what
    was persisted.
-2. `App.jsx` dispatches `bootstrapAuth()` on mount, which calls `GET /users/me`:
+2. `App.jsx` dispatches `bootstrapAuth()` on mount. It first checks `getState().auth.user` —
+   **if there's no persisted user, it skips the network call entirely** and dispatches
+   `handleLogout()` immediately (just flips `isAuthLoading` off; there was nothing to log out of).
+   A brand-new or already-logged-out visitor never fires `GET /users/me` at all, which means they
+   also never trigger the `401 → attempt /auth/refresh (also 401, no refresh cookie either)` pair
+   that used to fire on every single anonymous page load. Only if a persisted `user` exists (this
+   browser was logged in last time) does it actually call `GET /users/me` to check whether that
+   session is still valid:
    - Succeeds → `setAuthenticated(user)` — `isAuthenticated: true`, real user data from the
      response (not the possibly-stale persisted copy).
-   - Fails (no valid cookie, or refresh also fails — see below) → `handleLogout()`.
+   - Fails (cookie truly expired, or refresh also fails — see below) → `handleLogout()`.
 3. Until step 2 resolves, `AuthGuard` renders a full-screen loader for every route — there's no
    flash of the wrong state.
+
+The tradeoff of skipping the check in step 2: if persisted state is ever cleared independently of
+the actual session cookies (e.g. `localStorage` wiped by hand while the cookies survive), this
+shows the visitor as logged out even though the cookies might still work — they just log in again.
+Cookies remain the sole source of truth for whether a session is *actually* valid; the persisted
+`user` is only ever used as a hint for whether it's worth asking.
 
 ## `AuthGuard` (`components/common/Guard/index.jsx`)
 
@@ -67,13 +80,25 @@ follow up with a `bootstrapAuth()` call. `login.matchRejected` distinguishes a n
 (`"Failed to fetch"` → `networkError`) from a real API rejection (`loginError`, from the
 response's `message`), so the Login page can show the right one.
 
-**Register** (`pages/public/Register`) is OTP-based, matching the backend flow exactly: email →
-`sendOtp` → user enters the 6-digit code → `register` (which validates *and consumes* the OTP
-server-side; a separate `verifyOtp` call exists in `authApi` for an optional "OTP looks right"
-UI check, but isn't required before `register`). Password rules are duplicated client-side purely
-for instant feedback — `PASSWORD_RULES` in `Register/index.jsx` mirrors the backend's zod schema
-byte-for-byte (`/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/`) — the backend
-re-validates independently regardless, this is UX only.
+**Register** (`pages/public/Register`) is a three-step flow — `"email"` → `"otp"` → `"details"` —
+deliberately split rather than combining the code and the name/password form on one screen:
+
+1. **`email`**: `sendOtp({ email })` → advance to `otp`.
+2. **`otp`**: `verifyOtp({ email, otp })` — checks the code **without consuming it** (see
+   [backend authentication.md](../../backend/docs/authentication.md#post-authverify-otp)) — only
+   advances to `details` on success. A wrong or expired code fails right here, before the user has
+   typed a single character of their name/password, instead of after — the old two-screen version
+   combined OTP entry with the full details form, so a bad code meant losing everything already
+   typed into that form. "Resend code" and "Change email" (back to step 1) are both available here.
+3. **`details`**: name + password + confirm — submits `register({ name, email, password, otp })`,
+   which re-validates and *actually consumes* the same code server-side. This can still fail here
+   (most likely: the 10-minute OTP TTL expired while the user was filling in this form) — the
+   error is shown and the user can go back and request a fresh code.
+
+Password rules are duplicated client-side purely for instant feedback — `PASSWORD_RULES` in
+`Register/index.jsx` mirrors the backend's zod schema byte-for-byte
+(`/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/`) — the backend re-validates
+independently regardless, this is UX only.
 
 **Google sign-in** (`pages/public/_shared/GoogleSignInButton.jsx`) loads Google Identity Services
 on demand (script injected only if `VITE_GOOGLE_CLIENT_ID` is configured), renders Google's own
@@ -113,20 +138,44 @@ never attach it, matching the backend's own exemption of safe methods from CSRF 
 
 1. Waits for any in-flight refresh to finish first (`mutex.waitForUnlock()`).
 2. Runs the actual request.
-3. **On a `401`** (and the failing request wasn't itself `/auth/refresh`): acquires the mutex
-   (10s timeout — a stuck refresh can't deadlock every subsequent API call forever), calls
-   `POST /auth/refresh` (no body — the httpOnly refresh cookie does the work, and a successful
-   response rotates all three cookies again), then retries the original request once. If the
-   refresh itself fails, dispatches `handleLogout()`.
+3. **On a `401`** (and the failing request wasn't itself `/auth/refresh`):
+   - **Circuit breaker first**: if a refresh attempt already failed within the last 3 seconds
+     (`REFRESH_FAILURE_COOLDOWN_MS`, matching the backend's own reuse-detection grace window —
+     see [backend authentication.md](../../backend/docs/authentication.md#post-authrefresh)),
+     skip straight to `forceLogout()` without touching the network. This exists specifically so
+     that a burst of several requests failing around the same moment (e.g. several queries
+     in-flight right as a session dies) doesn't have each one independently attempt — and fail —
+     its own doomed refresh call.
+   - Otherwise, acquires the mutex (10s timeout — a stuck refresh can't deadlock every subsequent
+     API call forever). **After** acquiring it, checks whether another request's refresh already
+     succeeded *since this request's own 401 was observed* (`lastSuccessfulRefreshAt` vs. the
+     timestamp captured before acquiring) — if so, the cookies are already fresh, so it just
+     retries the original request instead of firing a second, redundant `POST /auth/refresh`. This
+     check exists because the `mutex.isLocked()` check just above isn't atomic with actually
+     acquiring the lock — two 401s arriving close together can both see it as unlocked and both
+     decide to be "the one" to refresh, before either has actually acquired it.
+   - Otherwise, calls `POST /auth/refresh` for real (no body — the httpOnly refresh cookie does
+     the work, and a successful response rotates all three cookies again), then retries the
+     original request. A `409` from the refresh call itself (the backend's own benign
+     "another request already refreshed moments ago, this isn't reuse" response) is treated the
+     same as success, **not** a failure — retry with the now-fresh cookies rather than force a
+     logout for a session that's actually still fine. A hard failure (`401`, or a thrown error)
+     records `lastRefreshFailureAt` (arming the circuit breaker above) and calls `forceLogout()`.
 4. If the mutex is already held (another request got there first), just waits for it to release
    and retries — it doesn't fire a second refresh.
-5. **On a `409`** (the backend's benign "token already refreshed by a concurrent request, please
-   retry" response — see [backend authentication.md](../../backend/docs/authentication.md#post-authrefresh)):
-   retries the whole `baseQueryWithReauth` call once, so a second 401/409 on the retry is still
-   fully re-evaluated rather than blindly relabeled.
+5. **On a `409`** on the *original* request (not the refresh call — same benign race, just
+   surfaced one level up): retries the whole `baseQueryWithReauth` call once, so a second
+   401/409 on the retry is still fully re-evaluated rather than blindly relabeled.
 6. Other error statuses: logged, and surfaced as a toast for anything that isn't handled inline
    by the calling component (401/403/404/507 are left for the component; 429/500 get a generic
    toast; everything else gets the backend's own `message`).
+
+**Why this matters**: before the circuit breaker and the post-acquire success check existed, a
+burst of near-simultaneous 401s (several components' queries failing around the same moment, or a
+UI bug that fires several requests in quick succession — see the logout button note below) could
+each independently race to refresh, occasionally have one of them get a benign `409` misread as a
+hard failure, force-logout a session that was actually fine, and repeat — a visible storm of
+`refresh`/`login`/`me` calls in the network tab, not a single clean retry.
 
 ## Logout
 
@@ -136,6 +185,14 @@ auth slice), then `persistor.purge()` (clears the persisted store entirely). No 
 `AuthGuard` reacts to `isAuthenticated` flipping to `false` and navigates client-side. A hard
 `window.location` redirect here would remount `App.jsx`, re-fire `bootstrapAuth()`, get a 401
 (now-logged-out), call this again — an infinite-reload loop, not just a one-time redirect.
+
+Both are plain `createAsyncThunk`s, not RTK Query mutations, so there's no built-in `isLoading` to
+disable a button with automatically — `pages/app/profile/index.jsx` tracks a local `signingOut`
+state and disables/loading-states both "Sign Out" buttons while a call is in flight. This isn't
+just polish: without it, a rapid double/triple-click each dispatched its own `logoutUser()`, each
+firing its own `POST /auth/logout`, each independently racing through the reauth logic above if
+the access token happened to be invalid at that moment — a burst of `logout` calls in the network
+tab from one intended click.
 
 ## Idle timeout (`useIdleTimeout`)
 

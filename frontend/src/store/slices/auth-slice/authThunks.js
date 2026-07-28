@@ -2,11 +2,26 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { handleLogout, setAuthenticated } from "./authSlice";
 
 // Called once on app mount. httpOnly cookies mean the frontend can't inspect whether a
-// session exists — GET /users/me is the only way to find out. baseQuery's reauth logic
-// will transparently try /auth/refresh once if the access token has expired.
+// session exists — GET /users/me is the only way to find out for sure. baseQuery's reauth
+// logic will transparently try /auth/refresh once if the access token has expired.
+//
+// Skipped entirely if there's no persisted `user` from a previous session: for a genuinely new
+// or already-logged-out visitor, GET /users/me would just 401, which would then trigger a
+// doomed /auth/refresh attempt too (no refresh cookie either) — two wasted round trips on every
+// single anonymous page load. `authTransform` (store/persist/index.js) only ever restores
+// `user`, never `isAuthenticated`, specifically so this check is meaningful: a non-null user
+// here means "was logged in last time", not "still is" — that's still verified below, over the
+// network, same as always. Tradeoff: if persisted state is cleared independently of the actual
+// session cookies (e.g. localStorage wiped by hand), this skips the check and shows logged-out
+// even though the cookies might still be valid — the user just logs in again in that edge case.
 export const bootstrapAuth = createAsyncThunk(
   "auth/bootstrapAuth",
-  async (_, { dispatch }) => {
+  async (_, { dispatch, getState }) => {
+    if (!getState().auth.user) {
+      dispatch(handleLogout());
+      return;
+    }
+
     const { userApi } = await import("../../api/features/userApi");
     try {
       const user = await dispatch(userApi.endpoints.getCurrentUser.initiate()).unwrap();

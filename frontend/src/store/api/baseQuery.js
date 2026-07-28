@@ -12,6 +12,19 @@ export const CSRF_HEADER = "x-csrf-token";
 const MUTEX_TIMEOUT_MS = 10_000;
 const mutex = new Mutex();
 
+// Tracks refresh outcomes across overlapping requests, since the isLocked()-then-acquire()
+// check below isn't atomic — two 401s that occur close together can both see the mutex as
+// unlocked and each decide "I'll be the one to refresh" before either has actually acquired it.
+// Comparing timestamps after acquiring the lock is what lets the second one realize someone
+// else already handled it, instead of firing a redundant /auth/refresh call.
+let lastSuccessfulRefreshAt = 0;
+let lastRefreshFailureAt = 0;
+// Matches the backend's own REFRESH_RACE_GRACE_MS (see backend/docs/authentication.md#post-authrefresh) —
+// once a refresh has genuinely failed, every other in-flight request is almost certainly a
+// casualty of the same dead session, not an independent problem. Fail them straight to logout
+// instead of each hammering /auth/refresh with a doomed attempt of its own.
+const REFRESH_FAILURE_COOLDOWN_MS = 3000;
+
 const acquireMutex = () =>
   new Promise((resolve, reject) => {
     const timer = setTimeout(
@@ -56,6 +69,15 @@ export const baseQueryWithReauth = async (args, api, extraOptions) => {
 
   // 401 on the refresh endpoint itself means the session is fully expired — force logout.
   if (result.error?.status === 401 && api.endpoint !== "refresh") {
+    const observedAt = Date.now();
+
+    // Circuit breaker: don't even attempt a refresh if one already failed moments ago — this
+    // 401 is almost certainly another casualty of that same dead session, not a new problem.
+    if (observedAt - lastRefreshFailureAt < REFRESH_FAILURE_COOLDOWN_MS) {
+      forceLogout(api);
+      return result;
+    }
+
     if (!mutex.isLocked()) {
       let release;
       try {
@@ -66,22 +88,39 @@ export const baseQueryWithReauth = async (args, api, extraOptions) => {
       }
 
       try {
-        // Refresh token is in an httpOnly cookie scoped to this path — no body needed,
-        // credentials:"include" sends it, and the response rotates all three cookies.
-        const refreshResult = await baseQuery(
-          { url: API_ROUTES.AUTH.REFRESH, method: "POST" },
-          api,
-          extraOptions,
-        );
-
-        if (refreshResult.data) {
-          logger.debug("Token refreshed successfully");
+        // Someone else's refresh call already succeeded (or was told "already refreshed, treat
+        // as success" below) while we were waiting for the lock — the cookies are already
+        // fresh, so just retry with those instead of firing a second, redundant refresh call.
+        if (lastSuccessfulRefreshAt > observedAt) {
           result = await baseQuery(args, api, extraOptions);
         } else {
-          logger.warn("Token refresh failed — logging out");
-          forceLogout(api);
+          // Refresh token is in an httpOnly cookie scoped to this path — no body needed,
+          // credentials:"include" sends it, and the response rotates all three cookies.
+          const refreshResult = await baseQuery(
+            { url: API_ROUTES.AUTH.REFRESH, method: "POST" },
+            api,
+            extraOptions,
+          );
+
+          if (refreshResult.data) {
+            lastSuccessfulRefreshAt = Date.now();
+            logger.debug("Token refreshed successfully");
+            result = await baseQuery(args, api, extraOptions);
+          } else if (refreshResult.error?.status === 409) {
+            // Benign race, not a failure: another request's refresh call landed within the
+            // backend's own grace window and already rotated the cookies (see
+            // backend/docs/authentication.md#post-authrefresh) — treat it the same as our own
+            // success rather than falling through to forceLogout for a session that's actually fine.
+            lastSuccessfulRefreshAt = Date.now();
+            result = await baseQuery(args, api, extraOptions);
+          } else {
+            lastRefreshFailureAt = Date.now();
+            logger.warn("Token refresh failed — logging out");
+            forceLogout(api);
+          }
         }
       } catch (error) {
+        lastRefreshFailureAt = Date.now();
         logger.error("Error during token refresh", error);
         forceLogout(api);
       } finally {
