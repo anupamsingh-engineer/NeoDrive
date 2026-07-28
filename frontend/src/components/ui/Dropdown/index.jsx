@@ -45,11 +45,16 @@ const Dropdown = ({ trigger, items = [], align = "right" }) => {
                 <button
                   key={item.key ?? item.label}
                   type="button"
+                  disabled={item.disabled}
                   onClick={() => {
+                    // Keep the dropdown open (and the item visibly disabled) instead of also
+                    // closing on a disabled click — closing gives no feedback that the click
+                    // registered at all, which is exactly what invites a repeat click.
+                    if (item.disabled) return;
                     item.onClick?.();
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors hover:bg-surface ${
+                  className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${
                     item.danger ? "text-danger" : "text-ink"
                   }`}
                 >

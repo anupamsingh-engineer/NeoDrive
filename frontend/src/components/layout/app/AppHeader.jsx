@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Menu, User, LogOut, ChevronDown } from "lucide-react";
@@ -13,11 +14,29 @@ const AppHeader = ({ onMenuClick, showMenuButton }) => {
   const navigate = useNavigate();
   const user = useSelector(selectCurrentUser);
   const { isMobile } = useBreakpoint();
+  // Same bug class already fixed on the Profile page's Sign Out buttons (logoutUser() is a
+  // plain thunk, not an RTK Query mutation, so nothing disables this automatically): a click
+  // with no visible feedback reads as "didn't work", inviting another click — each one firing
+  // its own POST /auth/logout and racing through baseQuery's reauth logic independently.
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    dispatch(logoutUser());
+  };
 
   const menuItems = [
     { key: "profile", icon: User, label: "Profile", onClick: () => navigate("/app/profile") },
     { divider: true },
-    { key: "logout", icon: LogOut, label: "Sign Out", danger: true, onClick: () => dispatch(logoutUser()) },
+    {
+      key: "logout",
+      icon: LogOut,
+      label: signingOut ? "Signing out…" : "Sign Out",
+      danger: true,
+      disabled: signingOut,
+      onClick: handleSignOut,
+    },
   ];
 
   return (

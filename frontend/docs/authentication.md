@@ -3,7 +3,8 @@
 Code: `src/store/api/features/authApi.js`, `src/store/api/baseQuery.js`,
 `src/store/slices/auth-slice/*`, `src/components/common/Guard/index.jsx`,
 `src/hooks/useIdleTimeout.js`, `src/hooks/useSessionGuard.js`, `src/utils/csrf.js`,
-`src/pages/public/Login|Register|ForgotPassword|ResetPassword`.
+`src/pages/public/Login|Register|ForgotPassword|ResetPassword`,
+`src/pages/app/profile/index.jsx`, `src/components/layout/app/AppHeader.jsx`.
 
 Read this alongside the backend's own
 **[authentication.md](../../backend/docs/authentication.md)** and
@@ -187,12 +188,20 @@ auth slice), then `persistor.purge()` (clears the persisted store entirely). No 
 (now-logged-out), call this again — an infinite-reload loop, not just a one-time redirect.
 
 Both are plain `createAsyncThunk`s, not RTK Query mutations, so there's no built-in `isLoading` to
-disable a button with automatically — `pages/app/profile/index.jsx` tracks a local `signingOut`
-state and disables/loading-states both "Sign Out" buttons while a call is in flight. This isn't
-just polish: without it, a rapid double/triple-click each dispatched its own `logoutUser()`, each
-firing its own `POST /auth/logout`, each independently racing through the reauth logic above if
-the access token happened to be invalid at that moment — a burst of `logout` calls in the network
-tab from one intended click.
+disable a button with automatically. **There are two independent "Sign Out" triggers in the app,
+and both need this guard applied separately**: `pages/app/profile/index.jsx` (tracks a local
+`signingOut` state, disables/loading-states both buttons) and `components/layout/app/AppHeader.jsx`'s
+avatar dropdown (same pattern — a local `signingOut` state, `Dropdown`'s items now support a
+`disabled` flag specifically so this item can be disabled while a logout is in flight, and the
+dropdown deliberately stays open showing "Signing out…" instead of closing on a disabled click,
+since closing with no other feedback is exactly what invites a repeat click).
+
+This isn't just polish: without it, a rapid double/triple-click — often provoked by the click
+*looking* like it did nothing, especially on the header dropdown before this fix, which had no
+loading state or visual feedback at all — each dispatched its own `logoutUser()`, each firing its
+own `POST /auth/logout`, each independently racing through the reauth logic above if the access
+token happened to be invalid at that moment. A burst of `logout` calls in the network tab from
+what felt like one click.
 
 ## Idle timeout (`useIdleTimeout`)
 
