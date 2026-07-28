@@ -222,3 +222,20 @@ from another device/the admin panel — see [backend users.md](../../backend/doc
 is also how a storage-quota change from a subscription webhook (see
 [backend subscriptions-billing.md](../../backend/docs/subscriptions-billing.md)) shows up in the
 UI without a manual refresh — within 60s, not instantly.
+
+**On error, this dispatches `logoutUser()` and nothing else** — it does **not** call
+`navigate()`. It used to (`navigate("/auth/login", { replace: true })` right after dispatching),
+which caused a genuine ping-pong loop: `logoutUser()` is async and only dispatches
+`handleLogout()` (the action that actually flips `isAuthenticated` to `false`) *after* its
+`POST /auth/logout` network call resolves — but the old code navigated to `/auth/login`
+immediately, before that flip had happened. Landing on `/auth/login` while `isAuthenticated` was
+still (briefly) `true` tripped `AuthGuard`'s own "can't revisit `/auth/*` while authenticated"
+rule, which bounced straight back to `/app/drive` — remounting `AppLayout`, and with it a *fresh*
+`useSessionGuard` (fresh `hasLoggedOutRef`), whose own `me` query failed the same way, dispatched
+a second real `logoutUser()`, navigated again, got bounced again — repeating for as many cycles
+as it took for one of the several now-in-flight `logoutUser()` calls to actually finish and make
+the `isAuthenticated` flip stick. Visibly: a burst of many `logout` calls in the network tab, all
+within a few seconds, no click involved. The fix is to do what every other logout trigger in this
+codebase already does (see `forceLogout` in `baseQuery.js`) — just clear the state and let
+`AuthGuard` redirect on its own once `isAuthenticated` genuinely goes false, instead of racing it
+with an immediate imperative navigation.
