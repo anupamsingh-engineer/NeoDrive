@@ -1,7 +1,8 @@
 # Authentication & Session Handling
 
 Code: `src/store/api/features/authApi.js`, `src/store/api/baseQuery.js`,
-`src/store/slices/auth-slice/*`, `src/components/common/Guard/index.jsx`,
+`src/store/slices/auth-slice/*`, `src/store/slices/registrationSlice.js`,
+`src/store/persist/index.js`, `src/utils/jwt.js`, `src/components/common/Guard/index.jsx`,
 `src/hooks/useIdleTimeout.js`, `src/hooks/useSessionGuard.js`, `src/utils/csrf.js`,
 `src/pages/public/Login|Register|ForgotPassword|ResetPassword`,
 `src/pages/app/profile/index.jsx`, `src/components/layout/app/AppHeader.jsx`.
@@ -85,16 +86,53 @@ response's `message`), so the Login page can show the right one.
 deliberately split rather than combining the code and the name/password form on one screen:
 
 1. **`email`**: `sendOtp({ email })` → advance to `otp`.
-2. **`otp`**: `verifyOtp({ email, otp })` — checks the code **without consuming it** (see
+2. **`otp`**: `verifyOtp({ email, otp })` — as of the backend's current contract, this **consumes**
+   the code and returns a `verificationToken` (see
    [backend authentication.md](../../backend/docs/authentication.md#post-authverify-otp)) — only
    advances to `details` on success. A wrong or expired code fails right here, before the user has
-   typed a single character of their name/password, instead of after — the old two-screen version
-   combined OTP entry with the full details form, so a bad code meant losing everything already
+   typed a single character of their name/password, instead of after — combining OTP entry with
+   the full details form on one screen would mean a bad code costs the user everything already
    typed into that form. "Resend code" and "Change email" (back to step 1) are both available here.
-3. **`details`**: name + password + confirm — submits `register({ name, email, password, otp })`,
-   which re-validates and *actually consumes* the same code server-side. This can still fail here
-   (most likely: the 10-minute OTP TTL expired while the user was filling in this form) — the
-   error is shown and the user can go back and request a fresh code.
+3. **`details`**: name + password + confirm — submits
+   `register({ name, email, password, verificationToken })`, spending the token from step 2 (the
+   raw OTP is long gone by this point, deleted server-side the moment step 2 succeeded). Can still
+   fail here — most likely the token's own expiry (`EMAIL_VERIFICATION_TOKEN_EXPIRY`, default 30
+   min) lapsed while the user was filling in this form — in which case the page automatically
+   drops back to the `otp` step (see below) rather than showing a dead-end error.
+
+### Register, persisted across reloads
+
+`step`, `email`, and `verificationToken` live in a dedicated Redux slice —
+`store/slices/registrationSlice.js` — not local component state, and that slice is in the
+`redux-persist` whitelist (`store/persist/index.js`) alongside `auth`. This is the entire point of
+consuming the OTP at the `otp` step instead of the `details` step: the resulting
+`verificationToken` is just a JWT, safe to sit in `localStorage` the same way the persisted `user`
+profile mirror already does (see ["The core fact everything else follows
+from"](#the-core-fact-everything-else-follows-from) above) — so a page reload mid-signup resumes
+exactly where the user left off instead of forcing them back through email entry and a brand new
+OTP email.
+
+**What's deliberately *not* persisted**: the raw OTP digits (single-use, nothing to gain by
+keeping them), and — importantly — the password typed into the `details` step, which stays in
+`Register/index.jsx`'s own local `useState` and is never dispatched into Redux. Reloading on the
+`details` step resumes there (token still valid) but the name/password fields come back empty;
+retyping two fields is a minor inconvenience, plaintext-password-in-`localStorage` is not a
+tradeoff worth making for it.
+
+**Expiry handling, two layers**:
+- **On rehydrate** (`registrationTransform` in `store/persist/index.js`): if the persisted
+  `verificationTokenExpiresAt` (decoded client-side from the JWT's `exp` claim via
+  `utils/jwt.js#getJwtExpiryMs` — a UI hint only, the backend independently re-verifies the real
+  token on every `register` call) has already passed, the transform falls back to the `otp` step
+  (email is still known, just needs a fresh code) instead of resurrecting a `details` form that's
+  guaranteed to 400 on submit.
+- **At submit time**: if `register` itself 400s with a message matching `/verif/i` (the token
+  expired in the gap between rehydrate and submit, or was never refreshed), the page dispatches
+  `otpSent({ email })` and drops back to the `otp` step automatically, same fallback as above.
+
+`registrationReset()` clears the whole slice — dispatched on a successful `register()` (before
+navigating away) and when the user explicitly hits "Change email" (back to step 1, discarding
+whatever OTP/token was in progress for the old address).
 
 Password rules are duplicated client-side purely for instant feedback — `PASSWORD_RULES` in
 `Register/index.jsx` mirrors the backend's zod schema byte-for-byte

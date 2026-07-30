@@ -75,16 +75,19 @@ src/
 ├── store/
 │   ├── index.js                    configureStore + persistStore
 │   ├── rootReducer.js
-│   ├── persist/index.js             persistConfig — whitelists only `auth`, transform strips tokens
+│   ├── persist/index.js             persistConfig — whitelists `auth` + `registration`, transforms strip tokens / expired signup progress
 │   ├── api/
 │   │   ├── baseApi.js                 RTK Query's createApi() base
 │   │   ├── baseQuery.js                fetchBaseQuery + CSRF header + 401 reauth + 409 retry + toasts
 │   │   └── features/                    authApi, directoryApi, fileApi, subscriptionApi, userApi
-│   ├── slices/auth-slice/               authSlice, authThunks, authSelectors, initialState
+│   ├── slices/
+│   │   ├── auth-slice/                    authSlice, authThunks, authSelectors, initialState
+│   │   └── registrationSlice.js            signup wizard progress (step/email/verificationToken) — see authentication.md
 │   └── middleware/                       loggingMiddleware.js — written but not currently
 │                                           registered on the store, see state-and-api.md
 └── utils/
     ├── csrf.js                    reads the csrfToken cookie
+    ├── jwt.js                      decode-only JWT payload reader (no verification) — UI hints only
     ├── logger.js                   leveled logger, no-ops in production
     ├── utils.js, common.constant.js
 ```

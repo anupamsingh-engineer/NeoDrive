@@ -69,11 +69,16 @@ export const { useGetXQuery } = xApi;
 - **Server data → RTK Query, always.** Never fetch inside a `useEffect` + `useState` and never put
   API response data into a hand-written Redux slice. If you're tempted to add a new Redux slice
   for something the API returns, it almost certainly belongs in an RTK Query endpoint's cache
-  instead (see [state-and-api.md](./state-and-api.md) — the entire app has exactly one non-`auth`
-  reducer, `api`, and that's intentional).
-- **Redux (the `auth` slice) is for client-derived auth state only** — not a general-purpose
-  global store. There is currently no second hand-written slice in this app; think hard before
-  adding one.
+  instead (see [state-and-api.md](./state-and-api.md)).
+- **Redux (the `auth` and `registration` slices) is for client-derived state that needs to
+  survive a reload** — not a general-purpose global store, and not a cache for server data (that's
+  RTK Query's job, see above). There are exactly two hand-written slices in this app; think hard
+  before adding a third. `registration` (`registrationSlice.js`) exists specifically because the
+  signup wizard's progress (which step, which email, the `verificationToken`) needs to outlive a
+  page reload — a plain `useState` in `Register/index.jsx` wouldn't — but it's still deliberately
+  narrow: no server data lives there, and the password typed into the details step is kept in
+  local component state, never dispatched into Redux, so it's never at risk of ending up in
+  `localStorage` via `redux-persist`. See [authentication.md](./authentication.md#register-persisted-across-reloads).
 - **Purely local/UI state** (a modal's open/closed, an upload progress queue, a view-mode toggle)
   stays in component `useState`, not Redux — see `useFileUpload`'s `queue` state or
   `useDriveViewMode`'s `localStorage`-backed toggle for the pattern

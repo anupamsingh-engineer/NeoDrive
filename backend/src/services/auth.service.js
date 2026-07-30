@@ -81,8 +81,27 @@ async function createUserWithRootDirectory({ name, email, password, picture }) {
   }
 }
 
-export async function register({ name, email, password, otp }, requestMeta) {
+// Verifies AND consumes the OTP (it can't be re-used after this - see otpService.consumeOtp),
+// then issues a short-lived purpose-scoped token proving "this email was verified recently".
+// The frontend persists this (not the raw OTP, which is now gone either way) across the rest of
+// registration - including a page reload - so verifying the email again is never required just
+// because the tab refreshed. See docs/authentication.md.
+export async function verifyEmailOtp(email, otp) {
   await otpService.consumeOtp(email, otp);
+  const verificationToken = signPurposeToken(email, TOKEN_PURPOSE.EMAIL_VERIFICATION, env.jwt.emailVerificationExpiry);
+  return { verificationToken, message: "OTP Verified!" };
+}
+
+export async function register({ name, email, password, verificationToken }, requestMeta) {
+  let decoded;
+  try {
+    decoded = verifyPurposeToken(verificationToken, TOKEN_PURPOSE.EMAIL_VERIFICATION);
+  } catch {
+    throw ApiError.badRequest("Invalid or expired verification, please verify your email again");
+  }
+  if (decoded.sub !== email) {
+    throw ApiError.badRequest("Verification does not match this email");
+  }
 
   const existing = await userRepository.findByEmail(email);
   if (existing) throw ApiError.conflict("This email already exists");

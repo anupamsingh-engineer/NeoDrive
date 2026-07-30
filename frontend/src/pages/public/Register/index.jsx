@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Mail, Lock, Hash, ArrowLeft } from "lucide-react";
@@ -7,6 +8,13 @@ import {
   useVerifyOtpMutation,
   useRegisterMutation,
 } from "../../../store/api/features/authApi";
+import {
+  selectRegistration,
+  otpSent,
+  otpVerified,
+  registrationReset,
+} from "../../../store/slices/registrationSlice";
+import { getJwtExpiryMs } from "../../../utils/jwt";
 import AuthCard from "../_shared/AuthCard";
 import { Button, Input, InlineAlert } from "../../../components/ui";
 
@@ -15,10 +23,13 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_RULES = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,72}$/;
 
 // Three separate steps rather than "OTP + details on one screen": verifying the code happens
-// (via POST /auth/verify-otp, which checks but doesn't consume it — see
+// (via POST /auth/verify-otp, which now consumes the OTP and returns a verificationToken - see
 // backend/docs/authentication.md#post-authverify-otp) before the user ever fills in name/
 // password, so a wrong or expired code fails right there instead of discarding a filled-out
-// form. POST /auth/register re-validates and consumes the same code for real on final submit.
+// form. `step`/`email`/`verificationToken` live in the persisted `registration` Redux slice
+// (registrationSlice.js), not local component state, specifically so a page reload mid-flow
+// resumes here instead of forcing the user back through email entry and a new OTP email. Name/
+// password/otp-input stay in local state and are never persisted.
 const STEPS = ["email", "otp", "details"];
 
 const stepVariants = {
@@ -27,22 +38,17 @@ const stepVariants = {
   exit: (direction) => ({ opacity: 0, x: direction > 0 ? -24 : 24, transition: { duration: 0.15 } }),
 };
 
-const STEP_COPY = {
-  email: { title: "Create account", subtitle: "Enter your email to get started" },
-  otp: { title: "Verify your email", subtitle: "Code sent to" },
-  details: { title: "Almost there", subtitle: "Choose a name and password" },
-};
-
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { step, email, verificationToken } = useSelector(selectRegistration);
+
   const [sendOtp, { isLoading: isSendingOtp }] = useSendOtpMutation();
   const [verifyOtp, { isLoading: isVerifyingOtp }] = useVerifyOtpMutation();
   const [register, { isLoading: isRegistering }] = useRegisterMutation();
 
-  const [step, setStep] = useState("email");
   const [direction, setDirection] = useState(1);
-
-  const [email, setEmail] = useState("");
+  const [emailInput, setEmailInput] = useState(email || "");
   const [otp, setOtp] = useState("");
   const [details, setDetails] = useState({ name: "", password: "", confirmPassword: "" });
 
@@ -53,28 +59,28 @@ const RegisterPage = () => {
 
   const setDetailField = (field) => (e) => setDetails((d) => ({ ...d, [field]: e.target.value }));
 
-  const goTo = (nextStep) => {
+  const goToStep = (nextStep) => {
     setDirection(STEPS.indexOf(nextStep) > STEPS.indexOf(step) ? 1 : -1);
     setErrorMsg("");
-    setStep(nextStep);
   };
 
   const handleRequestOtp = async (e) => {
     e.preventDefault();
     setErrorMsg("");
-    if (!email.trim()) {
+    if (!emailInput.trim()) {
       setEmailFieldError("Email is required");
       return;
     }
-    if (!EMAIL_PATTERN.test(email)) {
+    if (!EMAIL_PATTERN.test(emailInput)) {
       setEmailFieldError("Enter a valid email");
       return;
     }
     setEmailFieldError("");
 
     try {
-      await sendOtp({ email }).unwrap();
-      goTo("otp");
+      await sendOtp({ email: emailInput }).unwrap();
+      goToStep("otp");
+      dispatch(otpSent({ email: emailInput }));
     } catch (err) {
       setErrorMsg(err?.data?.message || "Failed to send OTP. Please try again.");
     }
@@ -99,11 +105,23 @@ const RegisterPage = () => {
     setOtpFieldError("");
 
     try {
-      await verifyOtp({ email, otp }).unwrap();
-      goTo("details");
+      const { data } = await verifyOtp({ email, otp }).unwrap();
+      goToStep("details");
+      dispatch(
+        otpVerified({
+          verificationToken: data.verificationToken,
+          expiresAt: getJwtExpiryMs(data.verificationToken),
+        }),
+      );
     } catch (err) {
       setErrorMsg(err?.data?.message || "Invalid or expired code.");
     }
+  };
+
+  const handleChangeEmail = () => {
+    goToStep("email");
+    dispatch(registrationReset());
+    setOtp("");
   };
 
   const validateDetails = () => {
@@ -129,19 +147,34 @@ const RegisterPage = () => {
     if (!validateDetails()) return;
 
     try {
-      await register({ name: details.name, email, password: details.password, otp }).unwrap();
+      await register({ name: details.name, email, password: details.password, verificationToken }).unwrap();
+      dispatch(registrationReset());
       navigate("/app/drive");
     } catch (err) {
-      // Most likely cause here: the code expired (10 min TTL) in the time it took to fill in
-      // the details form. Send them back to re-enter/resend it rather than a dead end.
-      setErrorMsg(err?.data?.message || "Registration failed. Please try again.");
+      const message = err?.data?.message || "Registration failed. Please try again.";
+      // Most likely cause: verificationToken expired (30 min default) while filling this form.
+      // Send back to re-verify with the still-known email rather than a dead-end retry that
+      // would just fail the exact same way again.
+      if (err?.status === 400 && /verif/i.test(message)) {
+        setErrorMsg(message);
+        goToStep("otp");
+        dispatch(otpSent({ email }));
+        return;
+      }
+      setErrorMsg(message);
     }
   };
 
-  const copy = STEP_COPY[step];
+  const stepTitle = step === "email" ? "Create account" : step === "otp" ? "Verify your email" : "Almost there";
+  const stepSubtitle =
+    step === "email"
+      ? "Enter your email to get started"
+      : step === "otp"
+        ? `Code sent to ${email}`
+        : `Choose a name and password for ${email}`;
 
   return (
-    <AuthCard title={copy.title} subtitle={step === "otp" ? `${copy.subtitle} ${email}` : copy.subtitle}>
+    <AuthCard title={stepTitle} subtitle={stepSubtitle}>
       <InlineAlert type="error" title={errorMsg} />
 
       <AnimatePresence mode="wait" custom={direction} initial={false}>
@@ -162,8 +195,8 @@ const RegisterPage = () => {
               prefixIcon={Mail}
               placeholder="Email address"
               autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
               error={emailFieldError}
             />
             <Button type="submit" variant="primary" size="lg" block loading={isSendingOtp}>
@@ -206,7 +239,7 @@ const RegisterPage = () => {
             </Button>
             <button
               type="button"
-              onClick={() => goTo("email")}
+              onClick={handleChangeEmail}
               className="flex items-center justify-center gap-1 text-sm text-ink-soft hover:text-ink"
             >
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />

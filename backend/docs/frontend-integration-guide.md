@@ -56,8 +56,8 @@ flowchart TB
 ```
 Storage App API
 ├── Auth & Session (cookie-based JWT)
-│   ├── OTP: send-otp → verify-otp (email ownership check before signup)
-│   ├── Register (consumes OTP, auto-login)
+│   ├── OTP: send-otp → verify-otp (consumes the OTP, returns a verificationToken)
+│   ├── Register (spends the verificationToken, not the raw OTP - auto-login)
 │   ├── Login (password)
 │   ├── Login with Google (idToken)
 │   ├── Refresh (rotates refresh token, silent re-auth)
@@ -150,7 +150,7 @@ Response header `X-Request-ID` — worth logging client-side (e.g. attach to err
 Build and test in this order — each step unlocks the data you need for the next:
 
 1. **Health check** — hit `GET /healthz` to confirm you're pointed at a live backend before building anything else.
-2. **Auth shell**: send-otp → verify-otp (optional pre-check) → register. This gets you a logged-in session (cookies set) with zero other dependencies.
+2. **Auth shell**: send-otp → verify-otp (returns a `verificationToken` — not optional, `register` requires it) → register. This gets you a logged-in session (cookies set) with zero other dependencies. Persist `verificationToken` client-side (it's just a short-lived JWT, not a secret on the level of the session cookies) across the rest of the signup form so a page reload between steps doesn't force the user back through email + a new OTP email.
 3. **Login + Google login** — same session outcome, different entry points.
 4. **`GET /users/me`** — render the app shell (name/avatar/plan/used-vs-max storage) once logged in.
 5. **Directory browsing**: `GET /directory` (no id = root) — build your file-explorer/grid view against this before touching uploads.
@@ -185,7 +185,11 @@ Errors: `400` invalid email · `429` cooldown active or rate-limited.
 ---
 
 #### 🔓 `POST /auth/verify-otp`
-Standalone check — does **not** consume the OTP (register does that itself). Use this for a "verify your email" step in a multi-page signup form before the user sets a password.
+**Consumes the OTP** (deletes the record — it cannot be reused) and, on success, issues a
+short-lived `verificationToken` (JWT, `purpose: "email_verification"`, ~30 min default) that
+`/auth/register` requires in place of the raw OTP. This is what lets a multi-step signup form
+survive a page reload: persist `verificationToken` (e.g. in `localStorage`/`redux-persist`) and
+resume straight at the "enter your details" step instead of re-sending an OTP email.
 
 Request:
 ```json
@@ -193,14 +197,18 @@ Request:
 ```
 Response `200`:
 ```json
-{ "success": true, "message": "OTP Verified!" }
+{ "success": true, "data": { "verificationToken": "eyJhbGci...", "message": "OTP Verified!" } }
 ```
-Errors: `400` invalid/expired OTP, or too many wrong attempts (max 5, then must request a new OTP).
+Errors: `400` invalid/expired OTP, or too many wrong attempts (max 5, then must request a new
+OTP). Because this now consumes the OTP, don't call it twice with the same code — disable your
+"verify" button while the request is in flight.
 
 ---
 
 #### 🔓 `POST /auth/register`
-Consumes the OTP. Creates the user + their root directory, and **logs them in immediately** (sets cookies) — no separate login call needed after this.
+Spends the `verificationToken` from `/auth/verify-otp` (not the raw OTP — that's already gone).
+Creates the user + their root directory, and **logs them in immediately** (sets cookies) — no
+separate login call needed after this.
 
 Request:
 ```json
@@ -208,10 +216,10 @@ Request:
   "name": "Jane Doe",
   "email": "jane@example.com",
   "password": "Str0ng!Pass",
-  "otp": "123456"
+  "verificationToken": "eyJhbGci..."
 }
 ```
-Password rules (enforced by zod): 8–72 chars, at least one lowercase, one uppercase, one digit, one special character.
+Password rules (enforced by zod): 8–72 chars, at least one lowercase, one uppercase, one digit, one special character. `email` must match the `verificationToken`'s embedded email exactly.
 
 Response `201` (also sets `accessToken`/`refreshToken`/`csrfToken` cookies):
 ```json
@@ -230,7 +238,9 @@ Response `201` (also sets `accessToken`/`refreshToken`/`csrfToken` cookies):
   }
 }
 ```
-Errors: `400` validation / invalid OTP · `409` email already registered.
+Errors: `400` validation, or an invalid/expired/mismatched `verificationToken` (send the user back
+to re-verify their email — `"Invalid or expired verification, please verify your email again"`) ·
+`409` email already registered.
 
 ---
 
@@ -634,7 +644,7 @@ Known plan IDs → quota (for reference, e.g. to render a pricing table):
 |---|---|:-:|:-:|---|
 | POST | `/auth/send-otp` | 🔓 | – | `{email}` |
 | POST | `/auth/verify-otp` | 🔓 | – | `{email, otp}` |
-| POST | `/auth/register` | 🔓 | – | `{name, email, password, otp}` |
+| POST | `/auth/register` | 🔓 | – | `{name, email, password, verificationToken}` |
 | POST | `/auth/login` | 🔓 | – | `{email, password}` |
 | POST | `/auth/google` | 🔓 | – | `{idToken}` |
 | POST | `/auth/refresh` | 🔓* | – | – (cookie only) |

@@ -65,9 +65,17 @@ Rate limit: `authLimiter` (10 / 15 min, keyed by `ip:email`).
 
 Rate limit: `authLimiter`.
 
-Optional standalone check — lets a client confirm the OTP is correct *before* showing the rest of
-the registration form. It does **not** consume/delete the OTP; `/auth/register` re-validates and
-consumes it independently, so calling this first is not required.
+Checks the OTP is correct *before* the client shows the rest of the registration form — and,
+unlike its name suggests, **this is the step that actually consumes the OTP** (deletes the
+record; it cannot be reused). In exchange, it issues a short-lived, purpose-scoped JWT proving
+"this email was verified recently," which `/auth/register` requires instead of the raw OTP.
+
+This split exists specifically so a client can survive a page reload mid-registration: the raw
+OTP only ever lives in the user's inbox and a single request, but the resulting
+`verificationToken` is safe for the frontend to persist (e.g. in Redux + `redux-persist`) and
+resume from — no second email round-trip just because a tab refreshed. See
+[frontend-integration-guide.md](./frontend-integration-guide.md) and, on the frontend side,
+`frontend/docs/authentication.md`.
 
 **Request**
 ```json
@@ -76,12 +84,27 @@ consumes it independently, so calling this first is not required.
 
 **Response `200`**
 ```json
-{ "success": true, "message": "OTP Verified!" }
+{
+  "success": true,
+  "data": {
+    "verificationToken": "<jwt, purpose: email_verification, ~30 min>",
+    "message": "OTP Verified!"
+  }
+}
 ```
+
+`verificationToken` is signed with the same secret as access tokens (`ACCESS_TOKEN_SECRET`) but
+carries a `purpose: "email_verification"` claim — `verifyAccessToken` explicitly rejects any
+token with a `purpose` claim, so this can never be replayed as a real access token, and
+`/auth/register` explicitly checks the purpose so a password-reset token (or any other
+purpose-scoped token) can't be substituted here either.
 
 **Errors**: `400` — `"Invalid or expired OTP"` (wrong code, no record, or record expired) or
 `"Too many attempts, please request a new OTP"` (after `OTP_MAX_VERIFY_ATTEMPTS`, default 5 —
-the OTP record is deleted at that point, a new `send-otp` call is required).
+the OTP record is deleted at that point, a new `send-otp` call is required). Because this now
+consumes the OTP on success, calling it twice in a row with the same correct code will fail the
+second time with `"Invalid or expired OTP"` — the client should disable the "verify" action while
+the request is in flight to avoid a double-submit.
 
 ---
 
@@ -95,7 +118,7 @@ Rate limit: `authLimiter`.
   "name": "Jane Doe",
   "email": "user@example.com",
   "password": "Str0ng!Pass",
-  "otp": "123456"
+  "verificationToken": "<jwt from /auth/verify-otp>"
 }
 ```
 
@@ -104,13 +127,21 @@ Rate limit: `authLimiter`.
 | `name` | 3–100 chars |
 | `email` | valid email, lowercased |
 | `password` | 8–72 chars; must contain lowercase, uppercase, digit, and special character |
-| `otp` | exactly 6 digits, must match a live, unconsumed OTP for `email` |
+| `verificationToken` | non-empty; must be a live `email_verification`-purpose token whose `sub` (email) matches `email` |
 
 **Behavior**
-1. Validates and **consumes** the OTP (deletes the record — it cannot be reused).
+1. Verifies `verificationToken` — signature, expiry (`EMAIL_VERIFICATION_TOKEN_EXPIRY`, default
+   30m), purpose, and that its `sub` matches the `email` in this request. `400` if any of that
+   fails (`"Invalid or expired verification, please verify your email again"` or
+   `"Verification does not match this email"`) — the frontend should send the user back to the
+   OTP step (or email step) to get a fresh one, not show a dead end.
 2. `409` if the email is already registered.
 3. Creates the `User` + their root `Directory` in one transaction.
 4. Issues a new session (access + refresh token pair; see "Session issuance" below).
+
+Note there's no OTP re-validation here anymore — that already happened, permanently, at
+`/auth/verify-otp`. The `verificationToken` *is* the proof; there's nothing left in the `OTP`
+collection to check by this point.
 
 **Response `201`** (cookies set: `accessToken`, `refreshToken`, `csrfToken`)
 ```json

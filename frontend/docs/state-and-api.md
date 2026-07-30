@@ -7,20 +7,24 @@ Code: `src/store/index.js`, `src/store/rootReducer.js`, `src/store/api/*`,
 
 ```js
 {
-  api: { ... },   // baseApi.reducerPath — all RTK Query cache state lives here
+  api: { ... },          // baseApi.reducerPath — all RTK Query cache state lives here
   auth: { isAuthenticated, user, isAuthLoading, loginError, networkError },
+  registration: { step, email, verificationToken, verificationTokenExpiresAt },
 }
 ```
 
-That's it — two top-level keys. There is no client-side "directory tree" or "file list" slice;
-**all server data lives in the RTK Query cache**, not hand-written reducers. The `auth` slice is
-the only piece of genuinely client-owned state, and even that is mostly a mirror of what
-`GET /users/me` last returned (see [authentication.md](./authentication.md)).
+Three top-level keys. There is no client-side "directory tree" or "file list" slice — **all
+server data lives in the RTK Query cache**, not hand-written reducers. `auth` and `registration`
+are the only genuinely client-owned state, and even `auth` is mostly a mirror of what
+`GET /users/me` last returned (see [authentication.md](./authentication.md)). `registration`
+exists purely so the signup wizard survives a page reload — see
+[authentication.md](./authentication.md#register-persisted-across-reloads).
 
-`redux-persist` (`store/persist/index.js`) persists **only** `auth`, and even then only the `user`
-object — see [authentication.md](./authentication.md#boot-sequence). `blacklist: ["api"]` means
-the RTK Query cache is never persisted; it's always refetched fresh on load (`keepUnusedDataFor: 60`
-in `baseApi.js` — cached data is dropped 60s after the last component using it unmounts).
+`redux-persist` (`store/persist/index.js`) persists `auth` (only the `user` object out of it —
+see [authentication.md](./authentication.md#boot-sequence)) and `registration` (step/email/token,
+never the password typed into its details step). `blacklist: ["api"]` means the RTK Query cache
+is never persisted; it's always refetched fresh on load (`keepUnusedDataFor: 60` in `baseApi.js` —
+cached data is dropped 60s after the last component using it unmounts).
 
 ## `loggingMiddleware` — written, not wired in
 

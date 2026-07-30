@@ -62,6 +62,10 @@ const config = {
     refreshExpiryMs: parseDurationMs(refreshExpiry, 30 * 24 * 60 * 60 * 1000),
     passwordResetExpiry: process.env.PASSWORD_RESET_TOKEN_EXPIRY || "15m",
     accountUnlockExpiry: process.env.ACCOUNT_UNLOCK_TOKEN_EXPIRY || "15m",
+    // How long a verified OTP stays "usable" for finishing registration - generous enough to
+    // fill in name/password (and survive an accidental page reload) without the OTP's own
+    // 10-minute TTL being the limiting factor, since verify-otp consumes the OTP record itself.
+    emailVerificationExpiry: process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY || "30m",
   },
 
   csrf: {

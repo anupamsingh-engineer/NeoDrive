@@ -26,7 +26,9 @@ export const registerSchema = z.object({
   name: z.string().min(3, "Name should be at least 3 characters").max(100, "Name can be at max 100 characters"),
   email: emailSchema,
   password: passwordSchema,
-  otp: otpDigitsSchema,
+  // Proof the email's OTP was already verified - issued by POST /auth/verify-otp, not the raw
+  // OTP itself (which that endpoint already consumed). See auth.service.js:register.
+  verificationToken: z.string().min(1, "Please verify your email first"),
 });
 
 export const loginSchema = z.object({

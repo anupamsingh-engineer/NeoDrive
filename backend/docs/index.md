@@ -14,7 +14,7 @@ that list.
 | Doc | What's in it |
 |---|---|
 | [architecture.md](./architecture.md) | Layering (`routes → controllers → services → repositories → models`), request lifecycle, folder map, cross-cutting patterns used everywhere |
-| [authentication.md](./authentication.md) | OTP signup, register, login, Google sign-in, refresh/rotation, logout, password reset — full payloads |
+| [authentication.md](./authentication.md) | OTP signup (verification-token pattern), register, login, Google sign-in, refresh/rotation, logout, password reset — full payloads |
 | [users.md](./users.md) | Current-user profile, admin user listing, forced logout, soft delete, RBAC roles |
 | [directories.md](./directories.md) | Folder tree, breadcrumb ancestors, create/rename/delete, recursive delete, size accounting |
 | [files.md](./files.md) | Two-phase S3 upload (initiate → direct-to-S3 PUT → complete), CloudFront signed downloads, rename/delete |

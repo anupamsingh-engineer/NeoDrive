@@ -13,6 +13,7 @@ export const COOKIE_NAMES = Object.freeze({
 export const TOKEN_PURPOSE = Object.freeze({
   PASSWORD_RESET: "password_reset",
   ACCOUNT_UNLOCK: "account_unlock",
+  EMAIL_VERIFICATION: "email_verification",
 });
 
 // Subscription plans offered to users. planId must exactly match a Plan already created in

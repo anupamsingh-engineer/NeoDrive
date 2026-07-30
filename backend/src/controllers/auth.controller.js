@@ -21,8 +21,8 @@ export const sendOtp = asyncHandler(async (req, res) => {
 });
 
 export const verifyOtp = asyncHandler(async (req, res) => {
-  await otpService.verifyOtpOnly(req.body.email, req.body.otp);
-  res.json({ success: true, message: "OTP Verified!" });
+  const data = await authService.verifyEmailOtp(req.body.email, req.body.otp);
+  res.json({ success: true, data });
 });
 
 export const register = asyncHandler(async (req, res) => {

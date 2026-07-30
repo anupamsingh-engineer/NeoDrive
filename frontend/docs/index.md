@@ -17,7 +17,7 @@ assume you've read that backend's [authentication.md](../../backend/docs/authent
 | Doc | What's in it |
 |---|---|
 | [architecture.md](./architecture.md) | Folder map, render/data-flow lifecycle, the patterns used throughout (RTK Query, lazy routes, cookie-only auth) |
-| [authentication.md](./authentication.md) | Cookie-based session bootstrap, login/register/Google, CSRF header injection, token refresh + mutex, idle timeout, background session revalidation |
+| [authentication.md](./authentication.md) | Cookie-based session bootstrap, login/register/Google, CSRF header injection, token refresh + mutex, idle timeout, background session revalidation, reload-proof signup wizard |
 | [routing-and-pages.md](./routing-and-pages.md) | Full route tree, `AuthGuard` redirect rules, role-gating, every page and what it does |
 | [state-and-api.md](./state-and-api.md) | Redux Toolkit + RTK Query setup, the 5 API slices, `redux-persist` config, error handling/toast rules |
 | [file-management.md](./file-management.md) | The Drive page: two-phase upload (direct-to-S3 with progress), download/preview, rename/delete, folder navigation |

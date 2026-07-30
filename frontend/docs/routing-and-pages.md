@@ -53,7 +53,7 @@ split exactly (`GET /users` → Admin+Manager; `DELETE /users/:id` → Admin onl
 |---|---|---|
 | **Home** (`pages/public/Home`) | `/`, `/home` | Marketing landing page — `Hero`, `Features`, `PricingTeaser`, `CtaSection` components |
 | **Login** (`pages/public/Login`) | `/auth/login` | Email/password form + `GoogleSignInButton`; redirects to `location.state.from` after success (set by `AuthGuard` when it bounced an unauthenticated visitor here) |
-| **Register** (`pages/public/Register`) | `/auth/register` | 3-step OTP signup: email (`sendOtp`) → code (`verifyOtp`, doesn't consume it) → name/password (`register`, consumes it, auto-authenticates). Split into three screens specifically so a wrong/expired code doesn't discard an already-filled-in name/password form — see [authentication.md](./authentication.md#login--register--google-sign-in) |
+| **Register** (`pages/public/Register`) | `/auth/register` | 3-step OTP signup: email (`sendOtp`) → code (`verifyOtp`, consumes it and returns a `verificationToken`) → name/password (`register`, spends the token, auto-authenticates). Split into three screens so a wrong/expired code doesn't discard an already-filled-in name/password form. Progress (step/email/token, never the password) is persisted in Redux and survives a page reload — see [authentication.md](./authentication.md#register-persisted-across-reloads) |
 | **ForgotPassword** | `/auth/forgot-password` | Submits an email to `POST /auth/forgot-password`; always shows the same generic success message regardless of whether the email exists (matches the backend's anti-enumeration design) |
 | **ResetPassword** | `/auth/reset-password` | Reads `?token=` from the URL (the link sent by email), submits a new password to `POST /auth/reset-password` |
 
