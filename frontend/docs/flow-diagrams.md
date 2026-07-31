@@ -1,89 +1,21 @@
-# Storage App Frontend
+# Flow Diagrams
 
-React 19 + Redux Toolkit/RTK Query client for the Storage App API (`../backend`) — file/folder
-storage with cookie-based auth, direct-to-S3 uploads, CloudFront-signed downloads, and Razorpay
-subscriptions.
+Visual reference for how this frontend actually works — app bootstrap, the Redux/RTK Query
+store, every auth flow, routing, file upload, cache invalidation, and analytics. This doc is
+diagram-first; for full detail follow the links out to the relevant deep-dive doc. A rendered
+version of this same content is also published as an Artifact, and the same diagrams are embedded
+directly in [../README.md](../README.md) as collapsible sections.
 
-**Looking for how a specific part of this app actually works?** See
-**[docs/](./docs/index.md)** — auth/session handling, routing, state management, the file upload
-flow, analytics, styling, environment variables, and build/deploy, all verified against the real
-code (not the generic template this project started from).
+Every diagram here was checked directly against the source it describes: `src/main.jsx`,
+`src/App.jsx`, `src/store/index.js`, `src/store/rootReducer.js`, `src/store/persist/index.js`,
+`src/store/api/baseApi.js`, `src/store/api/baseQuery.js`, `src/store/api/features/*.js`,
+`src/store/slices/auth-slice/*`, `src/store/slices/registrationSlice.js`,
+`src/components/common/Guard/index.jsx`, `src/hooks/{useSessionGuard,useIdleTimeout}.js`,
+`src/pages/app/drive/*`, `src/analytics/*`.
 
-**New to this codebase?** Jump to **[Flow Diagrams](#flow-diagrams)** below — rendered inline,
-click any section to expand — or read the prose version with a full config/timeouts cheat-sheet
-at [docs/flow-diagrams.md](./docs/flow-diagrams.md).
+---
 
-## Stack
-
-- **React 19** with Redux Toolkit + RTK Query (server state lives entirely in the RTK Query
-  cache — see [docs/state-and-api.md](./docs/state-and-api.md))
-- **React Router v7**, every page lazy-loaded (see [docs/routing-and-pages.md](./docs/routing-and-pages.md))
-- **Cookie-based auth** — both JWTs are httpOnly cookies the frontend never reads; only a
-  JS-visible CSRF cookie is used, mirrored into a request header on mutations (see
-  [docs/authentication.md](./docs/authentication.md))
-- **Tailwind CSS v4** (CSS-first `@theme` config, no `tailwind.config.js`) + a from-scratch UI
-  component library (no external UI kit) + framer-motion (see [docs/styling.md](./docs/styling.md))
-- **Vite** for dev/build; production deploys as a static site on **S3 + CloudFront** with a
-  custom domain and ACM-issued TLS (see
-  [docs/s3-cloudfront-deployment.md](./docs/s3-cloudfront-deployment.md)); Docker + nginx also
-  available for local/alternative container-based serving (see
-  [docs/build-and-deploy.md](./docs/build-and-deploy.md))
-
-## Setup
-
-```bash
-npm install
-cp .env.example .env.local   # fill in VITE_API_BASE_URL etc. — see docs/environment-variables.md
-npm run dev                   # http://localhost:5173
-```
-
-The backend must be running first (`../backend`, default `http://localhost:4000`) — see
-[../backend/docs/installation.md](../backend/docs/installation.md) or
-[../backend/README.md](../backend/README.md) to get it up via Docker.
-
-## Scripts
-
-| Script | Purpose |
-|---|---|
-| `npm run dev` | Dev server with HMR, `:5173` |
-| `npm run build` | Production build → `dist/` |
-| `npm run preview` | Serve the production build locally |
-| `npm run lint` / `npm run lint:fix` | ESLint |
-
-## Full documentation
-
-| Doc | What's in it |
-|---|---|
-| [docs/architecture.md](./docs/architecture.md) | Folder map, render/bootstrap lifecycle, the patterns used throughout |
-| [docs/flow-diagrams.md](./docs/flow-diagrams.md) | Visual reference: bootstrap, Redux/RTK Query store, every auth flow, routing, upload, caching, analytics, config cheat-sheet |
-| [docs/authentication.md](./docs/authentication.md) | Cookie session bootstrap, login/register/Google, CSRF, token refresh, idle timeout, background session revalidation |
-| [docs/routing-and-pages.md](./docs/routing-and-pages.md) | Full route tree, `AuthGuard` rules, role-gating, every page |
-| [docs/state-and-api.md](./docs/state-and-api.md) | Redux/RTK Query setup, the 5 API slices, error handling, two real bugs worth knowing about |
-| [docs/file-management.md](./docs/file-management.md) | The Drive page: two-phase upload with progress, preview, rename/delete |
-| [docs/analytics.md](./docs/analytics.md) | The multi-provider analytics module, event catalog, and a real gap (tracking isn't called anywhere yet) |
-| [docs/styling.md](./docs/styling.md) | Tailwind design tokens, the UI component library, motion primitives |
-| [docs/environment-variables.md](./docs/environment-variables.md) | Every `VITE_*` var — including two that are wired but not actually read |
-| [docs/build-and-deploy.md](./docs/build-and-deploy.md) | Vite build/chunking, Docker multi-stage build, `nginx.conf`, CSP, how the two repo-root GitHub Actions workflows avoid triggering each other |
-| [docs/s3-cloudfront-deployment.md](./docs/s3-cloudfront-deployment.md) | Production deployment: S3 (private, OAC) + CloudFront + ACM SSL + GitHub Actions CI/CD |
-| [docs/contributing.md](./docs/contributing.md) | Real conventions used in this codebase — how to add an endpoint/page, state rules, what not to do |
-
-This app is the client half of a two-part system — see
-**[../backend/docs/index.md](../backend/docs/index.md)** for the API it talks to (every request
-payload, the auth/CSRF model from the server side, and the EC2/Docker/nginx production deployment
-guide for the backend).
-
-## Flow Diagrams
-
-Click a section to expand. Full prose + a one-page config/timeouts cheat-sheet:
-[docs/flow-diagrams.md](./docs/flow-diagrams.md). Polished standalone version (same diagrams,
-sidebar navigation): [Artifact ↗](https://claude.ai/code/artifact/1482b2f2-a52d-410f-a2eb-e3ff7a039c15).
-
-<details>
-<summary><strong>1. System overview</strong></summary>
-
-The frontend never proxies file bytes through the backend — uploads go straight to S3, downloads
-redirect straight to CloudFront. Auth tokens are httpOnly cookies; only `auth.user` and
-`registration` (signup progress) ever reach `localStorage`.
+## 1. System overview
 
 ```mermaid
 flowchart LR
@@ -104,13 +36,14 @@ flowchart LR
     Redux -->|redux-persist| LS[("localStorage")]
 ```
 
-</details>
+The frontend never talks to S3/CloudFront through the backend for the actual file bytes — see
+[file-management.md](./file-management.md). Auth tokens are httpOnly cookies the browser manages
+automatically; only `auth.user` (profile) and `registration` (signup progress) ever reach
+`localStorage` — see [authentication.md](./authentication.md).
 
-<details>
-<summary><strong>2. App bootstrap / render lifecycle</strong></summary>
+---
 
-The persisted-`user` check in `bootstrapAuth()` is why a brand-new or already-logged-out visitor
-makes zero auth network calls on load.
+## 2. App bootstrap / render lifecycle
 
 ```mermaid
 flowchart TD
@@ -134,13 +67,13 @@ flowchart TD
     Guard --> Pages["PagesRouter renders the matched page"]
 ```
 
-</details>
+The persisted-`user` check in `bootstrapAuth()` is why a brand-new or already-logged-out visitor
+makes **zero** auth network calls on load — see
+[authentication.md](./authentication.md#boot-sequence).
 
-<details>
-<summary><strong>3. Redux store & RTK Query architecture</strong></summary>
+---
 
-One `createApi()` instance, five feature files injecting into it — not five separate APIs. That's
-why they all share one cache, one tag list, and the same reauth logic.
+## 3. Redux store & RTK Query architecture
 
 ```mermaid
 flowchart TD
@@ -162,10 +95,13 @@ flowchart TD
     WL --> RT["registrationTransform — drops back to\notp/email step if verificationToken expired"]
 ```
 
-</details>
+One `createApi()` instance, five feature files injecting into it — not five separate APIs. That's
+why they all share one cache, one tag list, and the same reauth logic. See
+[state-and-api.md](./state-and-api.md).
 
-<details>
-<summary><strong>4. Auth — login</strong></summary>
+---
+
+## 4. Auth — login
 
 ```mermaid
 sequenceDiagram
@@ -185,12 +121,9 @@ sequenceDiagram
     Note over Login,Store: AuthGuard independently redirects once<br/>isAuthenticated flips too - navigate() here is just faster UX
 ```
 
-</details>
+---
 
-<details>
-<summary><strong>5. Auth — registration (3-step, survives a reload)</strong></summary>
-
-Only `step`/`email`/`verificationToken` are persisted — never the password, never the raw OTP.
+## 5. Auth — registration (3-step, survives a reload)
 
 ```mermaid
 sequenceDiagram
@@ -216,13 +149,12 @@ sequenceDiagram
     Reg->>Reg: navigate("/app/drive")
 ```
 
-</details>
+Only `step`/`email`/`verificationToken` are persisted — never the password, never the raw OTP.
+Full detail: [authentication.md](./authentication.md#register-persisted-across-reloads).
 
-<details>
-<summary><strong>6. Auth — token refresh & reauth (client-side)</strong></summary>
+---
 
-The post-acquire "did someone else already refresh" check and the 409-as-success handling are
-both fixes for a real race that used to cause a burst of redundant refresh calls.
+## 6. Auth — token refresh & reauth (client-side)
 
 ```mermaid
 sequenceDiagram
@@ -255,10 +187,13 @@ sequenceDiagram
     BQ-->>Comp: final result
 ```
 
-</details>
+The post-acquire "did someone else already refresh" check and the 409-as-success handling are
+both fixes for a real race that used to cause a burst of redundant refresh calls — see
+[authentication.md](./authentication.md#token-refresh-transparent-mutex-guarded).
 
-<details>
-<summary><strong>7. Auth — logout & background session guard</strong></summary>
+---
+
+## 7. Auth — logout & background session guard
 
 ```mermaid
 sequenceDiagram
@@ -281,10 +216,9 @@ sequenceDiagram
     end
 ```
 
-</details>
+---
 
-<details>
-<summary><strong>8. Routing — AuthGuard decision tree</strong></summary>
+## 8. Routing — `AuthGuard` decision tree
 
 ```mermaid
 flowchart TD
@@ -302,10 +236,11 @@ flowchart TD
     Split -->|no| Public["PublicRoutes — PublicLayout"]
 ```
 
-</details>
+See [routing-and-pages.md](./routing-and-pages.md) for the full route table and every page.
 
-<details>
-<summary><strong>9. File upload — two-phase commit (client side)</strong></summary>
+---
+
+## 9. File upload — two-phase commit (client side)
 
 ```mermaid
 sequenceDiagram
@@ -329,13 +264,9 @@ sequenceDiagram
     Note over Drive: getDirectory auto-refetches -<br/>new file appears, no manual reload
 ```
 
-</details>
+---
 
-<details>
-<summary><strong>10. Directory browsing & cache invalidation</strong></summary>
-
-The breadcrumb trail is never reconstructed client-side — it comes straight from the API's
-`ancestors[]` on every response, so back/forward/refresh/deep-links all just work.
+## 10. Directory browsing & cache invalidation
 
 ```mermaid
 flowchart TD
@@ -349,13 +280,13 @@ flowchart TD
     Action -->|just navigating| Query
 ```
 
-</details>
+The breadcrumb trail is never reconstructed client-side — it comes straight from the API's
+`ancestors[]` on every response, so back/forward/refresh/deep-links all just work. See
+[file-management.md](./file-management.md).
 
-<details>
-<summary><strong>11. Analytics</strong></summary>
+---
 
-`track()`/`identify()` exist via `useAnalytics()` but have no call sites anywhere yet — only
-automatic page views actually fire.
+## 11. Analytics
 
 ```mermaid
 flowchart LR
@@ -367,8 +298,25 @@ flowchart LR
     Track --> Providers["gtag / dataLayer / posthog / mixpanel\neach wrapped in try/catch, silent no-op if absent"]
 ```
 
-</details>
+`track()`/`identify()` exist via `useAnalytics()` but have **no call sites** anywhere yet — only
+automatic page views actually fire. See [analytics.md](./analytics.md#the-event-catalog-analyticseventsjs--a-real-gap).
 
-Full config/timeouts cheat-sheet (idle timeout, session-guard poll, mutex/circuit-breaker
-windows, RTK Query cache retention, and the two `VITE_*` vars that look wired but aren't):
-[docs/flow-diagrams.md#12-config--timeouts-cheat-sheet](./docs/flow-diagrams.md#12-config--timeouts-cheat-sheet).
+---
+
+## 12. Config & timeouts cheat-sheet
+
+| What | Value | Source |
+|---|---|---|
+| Idle logout timeout | 30m | `AUTH_CONFIG.sessionTimeout` (hardcoded — `VITE_SESSION_TIMEOUT` isn't actually read) |
+| Background session-guard poll | 60s | `useSessionGuard.js` `POLL_INTERVAL` |
+| Refresh mutex acquire timeout | 10s | `baseQuery.js` `MUTEX_TIMEOUT_MS` |
+| Refresh-failure circuit breaker | 3s | `baseQuery.js` `REFRESH_FAILURE_COOLDOWN_MS` |
+| RTK Query unused-cache retention | 60s | `baseApi.js` `keepUnusedDataFor` |
+| API request timeout | 30s | `apiConfig.js` `API_CONFIG.timeout` |
+| Email-verification token (persisted) | 30m | mirrors the backend's `EMAIL_VERIFICATION_TOKEN_EXPIRY` |
+| Drive view-mode preference | indefinite | plain `localStorage`, key `drive-view-mode` (not Redux) |
+| Vite dev server | `:5173` | `vite.config.js` |
+| Razorpay key used at checkout | **hardcoded test key**, not `VITE_RAZORPAY_KEY_ID` | known gap, see [environment-variables.md](./environment-variables.md#vars-that-look-wired-but-arent) |
+
+See [environment-variables.md](./environment-variables.md) for every `VITE_*` var and which of
+them are actually wired up.

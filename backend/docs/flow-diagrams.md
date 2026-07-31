@@ -1,101 +1,20 @@
-# Storage App Backend (v2)
+# Flow Diagrams
 
-Production-grade rebuild of the storage app API: file/folder storage backed by S3 +
-CloudFront, MongoDB, Redis, BullMQ background jobs, and a full observability stack
-(structured logs, Prometheus metrics, OpenTelemetry tracing).
+Visual reference for how a request actually moves through this backend — end to end, from the
+middleware pipeline through auth, directories, files, signed URLs, caching, and the background
+queues. This doc is diagram-first; for full payloads and edge cases, follow the links out to the
+relevant deep-dive doc. A rendered, navigable version of this same content is also published as
+an Artifact.
 
-**Looking for API request/response payloads, or a deep dive into how a specific feature works?**
-See **[docs/](./docs/index.md)** — one doc per feature (auth, users, directories, files,
-subscriptions/webhooks, background jobs, caching, security, observability, error handling) plus a
-flat [API reference](./docs/api-reference.md) of every route.
+Every diagram here was checked directly against the source it describes:
+`app.js`, `src/middlewares/auth.middleware.js`, `src/services/auth.service.js`,
+`src/services/directory.service.js`, `src/services/file.service.js`,
+`src/services/storage/{s3,cloudfront}.storage.js`, `src/services/cache.service.js`,
+`src/queues/*`.
 
-**New to this codebase?** Jump to **[Flow Diagrams](#flow-diagrams)** below — rendered inline,
-click any section to expand — or read the prose version with a full timeouts/expiry cheat-sheet
-at [docs/flow-diagrams.md](./docs/flow-diagrams.md).
+---
 
-## Architecture
-
-Layered, capstone-style: `routes -> controllers -> services -> repositories -> models`.
-Repositories are the only layer that touches Mongoose; services are plain exported
-functions (no classes, no DI container - imports are the wiring).
-
-- **Auth**: dual JWT (access + refresh) with rotation-and-reuse-detection, Redis-backed
-  access-token blacklist, RBAC, account lockout, purpose-scoped tokens for password
-  reset. See `src/services/auth.service.js` and `src/services/token.service.js`.
-- **Storage**: S3 presigned uploads + CloudFront signed downloads (`src/services/storage/`).
-- **Caching**: cache-aside for user profile and directory listings, fail-open on Redis
-  errors (`src/services/cache.service.js`).
-- **Background jobs**: BullMQ queues for S3 cleanup, email sending, and nightly
-  directory-size reconciliation (`src/queues/`). Run via `npm run worker`.
-- **Observability**: pino structured logs with request/trace correlation, Prometheus
-  metrics at `/metrics`, OpenTelemetry tracing (opt-in via `OTEL_EXPORTER_OTLP_ENDPOINT`),
-  `/healthz` + `/readyz`.
-
-## Setup
-
-```bash
-npm install
-cp .env.example .env   # fill in secrets, including a MongoDB Atlas DB_URL
-npm run dev:all         # starts Redis (Docker), runs migrations, then API + worker together
-```
-
-`dev:all` is the fast day-to-day loop — one command, hot reload on both the API and the worker,
-no Docker rebuild. See **[docs/local-dev-troubleshooting.md](./docs/local-dev-troubleshooting.md)**
-for what it does under the hood, how to run the pieces separately instead, and a full
-error-message-to-fix table.
-
-MongoDB must run as a replica set - `register`/Google-login use a transaction. A MongoDB Atlas
-cluster (the default `DB_URL` in `.env.example`) already satisfies this out of the box.
-
-## Full stack (API + worker + Redis + Prometheus + Grafana + Jaeger)
-
-MongoDB is not containerized - `DB_URL` in `.env` points at your MongoDB Atlas cluster.
-
-```bash
-npm run docker:up      # first run / after code changes - rebuilds the images
-npm run docker:start   # subsequent runs - skips the rebuild, starts in ~2s
-npm run docker:logs    # tail app + worker
-npm run docker:down    # stop everything
-```
-
-- API: http://localhost:4000
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3001 (anonymous viewer access)
-- Jaeger UI: http://localhost:16686
-
-See **[docs/installation.md](./docs/installation.md)** for the full walkthrough (env setup, startup order, verification checklist), **[docs/frontend-integration-guide.md](./docs/frontend-integration-guide.md)** if you're building a frontend against this API from scratch, or **[docs/ec2-deployment.md](./docs/ec2-deployment.md)** to deploy this to a real EC2 instance with nginx, TLS, and CI/CD.
-
-## Scripts
-
-| Script                                                         | Purpose                                                                                      |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `npm run dev:all`                                            | Redis (Docker) + migrations + API + worker, all in one command, hot reload on both processes |
-| `npm run dev`                                                | API with hot reload (on its own)                                                             |
-| `npm run worker:dev`                                         | Background worker with hot reload (on its own)                                               |
-| `npm run migrate:up` / `migrate:down` / `migrate:status` | MongoDB index migrations (migrate-mongo)                                                     |
-| `npm run format`                                             | Prettier                                                                                     |
-
-## Security notes
-
-- Every secret/identifier is env-driven (`src/config/env.js`) - nothing hardcoded.
-- CSRF: signed double-submit cookie, enforced on cookie-authenticated mutating routes
-  only (Bearer-token requests are exempt, since they carry no ambient cookie).
-- Rate limiting, Helmet, Mongo sanitization, and HPP are applied globally in `app.js`.
-
-## Flow Diagrams
-
-Click a section to expand. Full prose + a one-page timeouts/expiry cheat-sheet:
-[docs/flow-diagrams.md](./docs/flow-diagrams.md). Polished standalone version (same diagrams,
-sidebar navigation): [Artifact ↗](https://claude.ai/code/artifact/d2fad691-e000-4b18-9463-b81fb05db9f9).
-Client-side counterpart — bootstrap, Redux/RTK Query, auth, routing, upload — in
-[../frontend/README.md#flow-diagrams](../frontend/README.md#flow-diagrams).
-
-<details>
-<summary><strong>1. System overview</strong></summary>
-
-The API process only ever *enqueues* background work — it never sends an email, deletes an S3
-object, or recomputes directory sizes itself. That happens in `worker.js`, a second process
-reading the same Redis queues.
+## 1. System overview
 
 ```mermaid
 flowchart LR
@@ -123,13 +42,13 @@ flowchart LR
     Worker -->|send email| Resend["Resend API"]
 ```
 
-</details>
+The API process only ever **enqueues** background work — it never sends an email, deletes an S3
+object, or recomputes directory sizes itself. That all happens in `worker.js`, a second Node
+process reading the same Redis queues. See [background-jobs.md](./background-jobs.md).
 
-<details>
-<summary><strong>2. Request lifecycle</strong></summary>
+---
 
-Every request, in order, per `app.js`. Webhooks split off *before* JSON parsing specifically so
-Razorpay's signature check gets the exact raw bytes.
+## 2. Request lifecycle (every request, in order)
 
 ```mermaid
 flowchart TD
@@ -152,13 +71,12 @@ flowchart TD
     Err --> Res
 ```
 
-</details>
+Webhooks are split off **before** JSON parsing specifically so Razorpay's signature check gets
+the exact raw bytes — see [subscriptions-billing.md](./subscriptions-billing.md).
 
-<details>
-<summary><strong>3. Auth — registration (OTP → verification token → account)</strong></summary>
+---
 
-The verification token exists specifically so a page reload between steps 2 and 3 doesn't force
-the user through a brand new OTP email.
+## 3. Auth — registration (OTP → verification token → account)
 
 ```mermaid
 sequenceDiagram
@@ -183,10 +101,11 @@ sequenceDiagram
     API-->>U: 201 Set-Cookie accessToken + refreshToken + csrfToken
 ```
 
-</details>
+The verification token exists specifically so a page reload between steps 2 and 3 doesn't force
+the user through a brand new OTP email — see
+[authentication.md](./authentication.md#post-authverify-otp).
 
-<details>
-<summary><strong>3b. Auth — login</strong></summary>
+## 3b. Auth — login
 
 ```mermaid
 sequenceDiagram
@@ -209,10 +128,9 @@ sequenceDiagram
     end
 ```
 
-</details>
+---
 
-<details>
-<summary><strong>4. Auth — every subsequent request (requireAuth)</strong></summary>
+## 4. Auth — every subsequent request (`requireAuth`)
 
 ```mermaid
 sequenceDiagram
@@ -230,20 +148,14 @@ sequenceDiagram
     end
     alt token blacklisted (logged out)
         API-->>U: 401 Session has been logged out
-    else user deleted, or tokensValidAfter greater than token.iat
+    else user deleted, or tokensValidAfter > token.iat
         API-->>U: 401 Session has been revoked
     else all clear
         API->>API: attach req.user, continue
     end
 ```
 
-</details>
-
-<details>
-<summary><strong>4b. Auth — refresh rotation (with reuse/theft detection)</strong></summary>
-
-A 3-second window is what separates a benign concurrent-request race from genuine token theft —
-`REFRESH_RACE_GRACE_MS`.
+## 4b. Auth — refresh rotation (with reuse/theft detection)
 
 ```mermaid
 sequenceDiagram
@@ -263,7 +175,7 @@ sequenceDiagram
         else lost the CAS (concurrent refresh)
             API-->>U: 409 please retry
         end
-    else hash mismatch, rotated less than 3s ago
+    else hash mismatch, rotated < 3s ago
         API-->>U: 409 please retry (benign race)
     else hash mismatch, older than 3s
         API->>Mongo: delete ALL refresh tokens for user
@@ -272,13 +184,12 @@ sequenceDiagram
     end
 ```
 
-</details>
+Full detail on why a 3-second window separates a benign race from theft:
+[authentication.md](./authentication.md#post-authrefresh).
 
-<details>
-<summary><strong>5. Directory flow</strong></summary>
+---
 
-S3 objects are deleted *asynchronously* via the `s3-cleanup` queue — the directory disappears
-from the API instantly, the underlying objects shortly after.
+## 5. Directory flow
 
 ```mermaid
 flowchart TD
@@ -307,13 +218,13 @@ flowchart TD
     end
 ```
 
-</details>
+S3 objects are deleted **asynchronously** via the `s3-cleanup` queue — the directory disappears
+from the API instantly, the underlying objects shortly after. See
+[directories.md](./directories.md).
 
-<details>
-<summary><strong>6. File upload — two-phase commit</strong></summary>
+---
 
-Quota is reserved at *initiate*, not at *complete* — an abandoned upload still counts against
-quota until explicitly deleted.
+## 6. File upload — two-phase commit
 
 ```mermaid
 sequenceDiagram
@@ -354,13 +265,13 @@ sequenceDiagram
     end
 ```
 
-</details>
+Quota is reserved at **initiate**, not at **complete** — an abandoned upload (never completed)
+still counts against quota until explicitly deleted. See
+[files.md](./files.md#post-fileuploadinitiate).
 
-<details>
-<summary><strong>7. File download — signed URL generation</strong></summary>
+---
 
-The API never streams file bytes — it only ever hands out a time-limited pointer. `action`
-controls inline vs. forced download; nothing else about the URL changes.
+## 7. File download — signed URL generation
 
 ```mermaid
 sequenceDiagram
@@ -378,15 +289,13 @@ sequenceDiagram
     CF-->>U: file bytes (served from the edge, S3 origin behind it)
 ```
 
-</details>
+The API never streams file bytes — it only ever hands out a time-limited pointer. `action`
+controls whether the browser renders it inline or forces a download; nothing else about the URL
+changes. See [files.md](./files.md#get-fileidactiondownload).
 
-<details>
-<summary><strong>8. Caching — where it comes in</strong></summary>
+---
 
-Two caches: `user_profile` (`user:profile:<userId>`, 300s TTL, populated by `GET /users/me`) and
-`dir_listing` (`dir:listing:<userId>:<dirId>`, 45s TTL, populated by `GET /directory/:id?`). Any
-Redis error, on either side, is logged and swallowed — an outage degrades to "always hit Mongo,"
-never a 500.
+## 8. Caching — where it comes in
 
 ```mermaid
 flowchart TD
@@ -401,14 +310,24 @@ flowchart TD
     Warn --> Return["return the fetched value"]
 ```
 
-</details>
+**The two caches in use:**
 
-<details>
-<summary><strong>9. Background queues</strong></summary>
+| Cache | Key | TTL | Populated by |
+|---|---|---|---|
+| `user_profile` | `user:profile:<userId>` | 300s | `GET /users/me` |
+| `dir_listing` | `dir:listing:<userId>:<dirId>` | 45s | `GET /directory/:id?` |
 
-If the worker process isn't running, jobs pile up in Redis and nothing happens — OTP/reset emails
-never send, deleted files' S3 objects never get cleaned up — even though the API endpoints that
-enqueued them already returned success.
+**What invalidates them:** every directory/file create, rename, or delete calls
+`invalidateDirectoryListings` for every ancestor whose `size` it touched — not just the target —
+since a listing embeds its own directory's `size`. The nightly reconciliation job does the same
+for anything it corrects. `user_profile` is only busted on user delete or a subscription webhook
+quota change. Any Redis error, on either the read or write side, is logged and swallowed — a
+Redis outage degrades the app to "always hit Mongo," never a 500. See
+[caching.md](./caching.md).
+
+---
+
+## 9. Background queues
 
 ```mermaid
 flowchart LR
@@ -426,7 +345,35 @@ flowchart LR
     end
 ```
 
-</details>
+If the worker process isn't running, jobs pile up in Redis and nothing happens — OTP/reset emails
+never send, deleted files' S3 objects never get cleaned up — even though the API endpoints that
+enqueued them already returned success. See [background-jobs.md](./background-jobs.md).
 
-Full timeouts/expiry cheat-sheet (access token, refresh token, OTP, signed URLs, caches, rate
-limits — everything above, in one table): [docs/flow-diagrams.md#10-timeouts--expiry-cheat-sheet](./docs/flow-diagrams.md#10-timeouts--expiry-cheat-sheet).
+---
+
+## 10. Timeouts & expiry — cheat sheet
+
+| What | Value | Source |
+|---|---|---|
+| Access token | 15m | `ACCESS_TOKEN_EXPIRY` |
+| Refresh token | 30d | `REFRESH_TOKEN_EXPIRY` |
+| Refresh rotation race grace window | 3s | `REFRESH_RACE_GRACE_MS` (hardcoded) |
+| OTP validity | 10m (Mongo TTL index) | `OTP_TTL_SECONDS` |
+| OTP resend cooldown | 60s | `OTP_RESEND_COOLDOWN_SECONDS` |
+| OTP max verify attempts | 5 | `OTP_MAX_VERIFY_ATTEMPTS` |
+| Email-verification token | 30m | `EMAIL_VERIFICATION_TOKEN_EXPIRY` |
+| Password-reset token | 15m | `PASSWORD_RESET_TOKEN_EXPIRY` |
+| Account lockout | 30m, after 5 failed attempts | `LOCK_DURATION_MS` / `MAX_LOGIN_ATTEMPTS` |
+| Max concurrent sessions/user | 5 (oldest evicted) | `MAX_SESSIONS_PER_USER` |
+| S3 upload presigned URL | 5m | hardcoded, `s3.storage.js` |
+| CloudFront download signed URL | 1h | `CLOUDFRONT_URL_EXPIRY_SECONDS` |
+| `user_profile` cache | 5m | `PROFILE_CACHE_TTL_SECONDS` |
+| `dir_listing` cache | 45s | `DIR_LISTING_CACHE_TTL_SECONDS` |
+| Access-token blacklist entry | = token's remaining life at logout | `token.service.js` |
+| Global rate limit | 300 / 15m per IP | `globalLimiter` |
+| Auth rate limit (OTP/login/register/...) | 10 / 15m per `ip:email` | `authLimiter` |
+| Refresh rate limit | 120 / 15m per IP | `refreshLimiter` |
+| Upload rate limit | 60 / min per user | `uploadLimiter` |
+| Nightly size reconciliation | 02:00 daily | cron `0 2 * * *` |
+
+See [security.md](./security.md) for the reasoning behind each auth-related number.
