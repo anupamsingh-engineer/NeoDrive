@@ -46,7 +46,7 @@ export const refreshLimiter = rateLimit({
   keyGenerator: (req) => req.ip,
   handler,
 });
-
+// 60 requests per minute per user for file uploads, which is a reasonable limit for most users while still preventing abuse.
 export const uploadLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,

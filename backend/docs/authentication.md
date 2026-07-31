@@ -22,11 +22,11 @@ Code: `src/routes/auth.routes.js`, `src/controllers/auth.controller.js`,
 
 ## Cookies set on every successful auth response
 
-| Cookie | HttpOnly | Path | Lifetime | Purpose |
-|---|---|---|---|---|
-| `accessToken` | yes | `/` | 15 min (fixed) | Sent on every request |
-| `refreshToken` | yes | `/auth/refresh` only | matches `REFRESH_TOKEN_EXPIRY` (default 30d) | Only ever sent to the refresh endpoint |
-| `csrfToken` | **no** (JS-readable) | `/` | matches `REFRESH_TOKEN_EXPIRY` | Client mirrors this into an `x-csrf-token` header on mutating requests — see [security.md](./security.md) |
+| Cookie           | HttpOnly                   | Path                   | Lifetime                                      | Purpose                                                                                                    |
+| ---------------- | -------------------------- | ---------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `accessToken`  | yes                        | `/`                  | 15 min (fixed)                                | Sent on every request                                                                                      |
+| `refreshToken` | yes                        | `/auth/refresh` only | matches`REFRESH_TOKEN_EXPIRY` (default 30d) | Only ever sent to the refresh endpoint                                                                     |
+| `csrfToken`    | **no** (JS-readable) | `/`                  | matches`REFRESH_TOKEN_EXPIRY`               | Client mirrors this into an`x-csrf-token` header on mutating requests — see [security.md](./security.md) |
 
 `secure` is true only in production; `sameSite` is `"none"` in production (cross-site capable)
 and `"lax"` in development.
@@ -38,21 +38,24 @@ and `"lax"` in development.
 Rate limit: `authLimiter` (10 / 15 min, keyed by `ip:email`).
 
 **Request**
+
 ```json
 { "email": "user@example.com" }
 ```
 
 **Behavior**
+
 - Enforces a resend cooldown (`OTP_RESEND_COOLDOWN_SECONDS`, default 60s) via a Redis `SET NX`
   lock — a second call inside the window gets `429`.
 - Generates a 6-digit numeric OTP (`crypto.randomInt`, not `Math.random`), upserts it onto an
   `OTP` document keyed by email (replaces any previous one, resets `attemptCount` to 0), and
   enqueues a `send-otp` email job (see [background-jobs.md](./background-jobs.md)) — the HTTP
   response does not wait for the email to actually send.
-- The OTP document has a Mongo TTL index (`expires: OTP_TTL_SECONDS`, default 600s) — it's
+- The OTP document has a Mongo TTL index (`expires: OTP_TTL_SECONDS`, default 600s - 10min) — it's
   auto-deleted by Mongo once it expires, no explicit cleanup needed.
 
 **Response `201`**
+
 ```json
 { "success": true, "data": { "message": "OTP sent successfully to user@example.com" } }
 ```
@@ -78,11 +81,13 @@ resume from — no second email round-trip just because a tab refreshed. See
 `frontend/docs/authentication.md`.
 
 **Request**
+
 ```json
 { "email": "user@example.com", "otp": "123456" }
 ```
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -113,6 +118,7 @@ the request is in flight to avoid a double-submit.
 Rate limit: `authLimiter`.
 
 **Request**
+
 ```json
 {
   "name": "Jane Doe",
@@ -122,14 +128,15 @@ Rate limit: `authLimiter`.
 }
 ```
 
-| Field | Rule |
-|---|---|
-| `name` | 3–100 chars |
-| `email` | valid email, lowercased |
-| `password` | 8–72 chars; must contain lowercase, uppercase, digit, and special character |
-| `verificationToken` | non-empty; must be a live `email_verification`-purpose token whose `sub` (email) matches `email` |
+| Field                 | Rule                                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `name`              | 3–100 chars                                                                                          |
+| `email`             | valid email, lowercased                                                                               |
+| `password`          | 8–72 chars; must contain lowercase, uppercase, digit, and special character                          |
+| `verificationToken` | non-empty; must be a live`email_verification`-purpose token whose `sub` (email) matches `email` |
 
 **Behavior**
+
 1. Verifies `verificationToken` — signature, expiry (`EMAIL_VERIFICATION_TOKEN_EXPIRY`, default
    30m), purpose, and that its `sub` matches the `email` in this request. `400` if any of that
    fails (`"Invalid or expired verification, please verify your email again"` or
@@ -144,6 +151,7 @@ Note there's no OTP re-validation here anymore — that already happened, perman
 collection to check by this point.
 
 **Response `201`** (cookies set: `accessToken`, `refreshToken`, `csrfToken`)
+
 ```json
 {
   "success": true,
@@ -170,11 +178,13 @@ collection to check by this point.
 Rate limit: `authLimiter`.
 
 **Request**
+
 ```json
 { "email": "user@example.com", "password": "Str0ng!Pass" }
 ```
 
 **Behavior**
+
 - Generic `401 "Invalid credentials"` for both "no such user" and "wrong password" — this
   endpoint never reveals whether an email is registered.
 - `400` if the account was created via Google and has no password set
@@ -195,11 +205,13 @@ Rate limit: `authLimiter`.
 Rate limit: `authLimiter`.
 
 **Request**
+
 ```json
 { "idToken": "<Google ID token from the frontend's Google Sign-In flow>" }
 ```
 
 **Behavior**
+
 - Verifies the ID token against `GOOGLE_CLIENT_ID` via `google-auth-library`.
 - Existing, non-deleted user → logs them in (refreshes their `picture` from Google only if it
   isn't already a `googleusercontent.com` URL, so a user-uploaded picture is never clobbered).
@@ -207,6 +219,7 @@ Rate limit: `authLimiter`.
 - No existing user → creates one (+ root directory), `isNewUser: true`.
 
 **Response** `201` (new user) or `200` (existing):
+
 ```json
 {
   "success": true,
@@ -229,11 +242,11 @@ No request body — reads the `refreshToken` cookie (path-scoped to `/auth/refre
 only endpoint that ever receives it).
 
 **Behavior (rotation with reuse detection)**
+
 1. Verify the JWT signature/expiry → `401` if invalid.
 2. Look up the backing `RefreshToken` document by the token's `tokenId` claim.
 3. Compare the *incoming* token's hash against the stored `tokenHash`:
-   - **Mismatch, but the document was updated within the last 3 seconds** → `409
-     "Token already refreshed, please retry"`. This is the benign case: two requests raced to
+   - **Mismatch, but the document was updated within the last 3 seconds** → `409 "Token already refreshed, please retry"`. This is the benign case: two requests raced to
      refresh the same not-yet-rotated token (e.g. two tabs), one already won.
    - **Mismatch, older than 3 seconds** → treated as **theft**: every session for that user is
      deleted and `tokensValidAfter` is bumped (which also instantly invalidates any still-valid
@@ -244,6 +257,7 @@ only endpoint that ever receives it).
 5. Issue a new access + refresh token pair.
 
 **Response `200`** (new cookies set)
+
 ```json
 { "success": true, "message": "Token refreshed" }
 ```
@@ -274,6 +288,7 @@ every device/session at once, including ones whose access token hasn't expired y
 Rate limit: `authLimiter`.
 
 **Request**
+
 ```json
 { "email": "user@example.com" }
 ```
@@ -293,6 +308,7 @@ reads `token` via `useSearchParams()` — see
 nowhere useful, even though the API side of the flow works fine either way.
 
 **Response `200`**
+
 ```json
 { "success": true, "data": { "message": "If an account with that email exists, a reset link has been sent." } }
 ```
@@ -302,6 +318,7 @@ nowhere useful, even though the API side of the flow works fine either way.
 Rate limit: `authLimiter`.
 
 **Request**
+
 ```json
 { "token": "<token from the reset email link's ?token= query param>", "password": "N3wStr0ng!Pass" }
 ```
@@ -315,6 +332,7 @@ revokes **every** existing session for that user (same as `logout-all`) — the 
 in on all devices with the new password.
 
 **Response `200`**
+
 ```json
 { "success": true, "data": { "message": "Password has been reset, please log in again" } }
 ```

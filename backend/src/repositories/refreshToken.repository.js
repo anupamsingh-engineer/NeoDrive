@@ -40,5 +40,5 @@ export async function findOldestForUser(userId) {
 }
 
 export async function distinctUserIdsWithActiveSessions() {
-  return RefreshToken.distinct("userId");
+  return RefreshToken.distinct("userId"); // Returns an array of unique user IDs that have at least one active refresh token in the database.
 }

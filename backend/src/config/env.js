@@ -108,7 +108,7 @@ const config = {
     // `docker compose`, which also parses .env for its own variable substitution and doesn't
     // support multi-line quoted values.
     privateKey: requireEnvInProd("CLOUDFRONT_PRIVATE_KEY")?.replace(/\\n/g, "\n"),
-    signedUrlExpirySeconds: Number(process.env.CLOUDFRONT_URL_EXPIRY_SECONDS) || 3600,
+    signedUrlExpirySeconds: Number(process.env.CLOUDFRONT_URL_EXPIRY_SECONDS) || 3600, // 1 hour
   },
 
   google: {

@@ -18,7 +18,7 @@ const s3Client = new S3Client({
   },
 });
 
-const UPLOAD_URL_EXPIRY_SECONDS = 300;
+const UPLOAD_URL_EXPIRY_SECONDS = 300; // 5 minutes
 
 export async function createUploadSignedUrl({ key, contentType }) {
   try {
