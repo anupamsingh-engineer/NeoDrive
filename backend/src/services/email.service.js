@@ -26,11 +26,21 @@ export async function sendOtpEmail(email, otp) {
 }
 
 export async function sendPasswordResetEmail(email, resetToken) {
+  // Must exactly match the frontend's reset-password route (pages/public/ResetPassword reads
+  // the token via useSearchParams().get("token")) - see frontend/docs/routing-and-pages.md.
+  const resetUrl = `${env.frontend.url}/auth/reset-password?token=${encodeURIComponent(resetToken)}`;
+
   const html = `
     <div style="font-family:sans-serif;">
       <h2>Reset your password</h2>
-      <p>Use this token to reset your password (valid for ${env.jwt.passwordResetExpiry}):</p>
-      <code>${resetToken}</code>
+      <p>Click the button below to reset your password (valid for ${env.jwt.passwordResetExpiry}):</p>
+      <p>
+        <a href="${resetUrl}" style="display:inline-block;padding:10px 20px;background:#5a55f0;color:#ffffff;text-decoration:none;border-radius:6px;">
+          Reset Password
+        </a>
+      </p>
+      <p>Or copy and paste this link into your browser:</p>
+      <p><a href="${resetUrl}">${resetUrl}</a></p>
     </div>
   `;
 

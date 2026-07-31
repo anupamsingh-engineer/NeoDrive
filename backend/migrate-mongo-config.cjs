@@ -1,4 +1,5 @@
 require("dotenv/config");
+require("./src/config/dns.cjs");
 
 module.exports = {
   mongodb: {

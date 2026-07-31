@@ -84,7 +84,7 @@ backend/
 ├── migrate-mongo-config.cjs + migrations/   Index migrations (migrate-mongo)
 ├── docker-compose.yml       app + worker + migrate + redis + prometheus + grafana + jaeger (Mongo is Atlas, external)
 └── src/
-    ├── config/              env loading/validation, logger, redis client, mongo connection, prom-client registry, constants
+    ├── config/              env loading/validation, logger, redis client, mongo connection, DNS resolver override (dns.cjs), prom-client registry, constants
     ├── routes/               HTTP method+path+middleware wiring only
     ├── controllers/          req/res shaping only
     ├── services/              business logic

@@ -1,12 +1,10 @@
+import "./src/config/dns.cjs";
 import app from "./app.js";
 import env from "./src/config/env.js";
 import logger from "./src/config/logger.js";
 import { connectDB, disconnectDB } from "./src/config/db.js";
 import redisClient from "./src/config/redis.js";
 import { initQueueProducers, closeQueueProducers } from "./src/queues/index.js";
-import * as dns from "node:dns";
-
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 await connectDB();
 await initQueueProducers();

@@ -54,6 +54,14 @@ const config = {
     allowedOrigins: [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2].filter(Boolean),
   },
 
+  // Reuses CLIENT_URL_1 (already the CORS-trusted primary frontend origin) rather than a
+  // separate env var - keeps the link embedded in emails (password reset) always pointing at
+  // the same origin the browser is actually allowed to call the API from, with one value to
+  // update instead of two that could drift apart.
+  frontend: {
+    url: process.env.CLIENT_URL_1 || "http://localhost:5173",
+  },
+
   jwt: {
     accessSecret: requireEnv("ACCESS_TOKEN_SECRET"),
     refreshSecret: requireEnv("REFRESH_TOKEN_SECRET"),

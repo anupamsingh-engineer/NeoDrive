@@ -9,6 +9,7 @@
     "start": "node --no-deprecation --import ./instrumentation.js server.js",
     "worker": "node --no-deprecation --import ./instrumentation.js src/worker.js",
     "worker:dev": "node --watch --no-deprecation --import ./instrumentation.js --env-file=.env src/worker.js",
+    "dev:all": "docker compose up redis -d && npm run migrate:up && concurrently -n API,WORKER -c blue,magenta \"npm:dev\" \"npm:worker:dev\"",
     "migrate:up": "migrate-mongo up --file migrate-mongo-config.cjs",
     "migrate:down": "migrate-mongo down --file migrate-mongo-config.cjs",
     "migrate:status": "migrate-mongo status --file migrate-mongo-config.cjs",
@@ -46,8 +47,8 @@
     "hpp": "^0.2.3",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
-    "mime-types": "^3.0.1",
     "migrate-mongo": "^11.0.0",
+    "mime-types": "^3.0.1",
     "mongoose": "^8.12.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
@@ -59,6 +60,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "concurrently": "^10.0.4",
     "prettier": "^3.4.2"
   }
 }

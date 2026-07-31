@@ -312,6 +312,13 @@ Response: `204 No Content`.
 #### 🔓 `POST /auth/forgot-password`
 Always returns `200` regardless of whether the email exists (anti-enumeration) — don't use the response to tell the user "email not found".
 
+The email sent contains a clickable link — `<CLIENT_URL_1>/auth/reset-password?token=<token>` —
+not the bare token. Your reset-password page needs to exist at that exact path and read `token`
+from the query string (e.g. `useSearchParams()` in React Router). `CLIENT_URL_1` is a backend env
+var (`env.frontend.url`), so if you deploy the frontend somewhere other than what the backend has
+configured there, the emailed link will point at the wrong place even though the API itself works
+fine — this is a deploy-config issue, not something fixable from the frontend side.
+
 Request:
 ```json
 { "email": "jane@example.com" }
@@ -324,7 +331,9 @@ Response `200`:
 ---
 
 #### 🔓 `POST /auth/reset-password`
-`token` is the value emailed to the user (a purpose-scoped JWT, valid 15 min). Resetting the password force-logs-out every existing session.
+`token` is the `?token=` query param from the link in the reset email (a purpose-scoped JWT,
+valid 15 min) — not something the user types in themselves. Resetting the password force-logs-out
+every existing session.
 
 Request:
 ```json

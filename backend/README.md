@@ -31,17 +31,17 @@ functions (no classes, no DI container - imports are the wiring).
 
 ```bash
 npm install
-cp .env.example .env   # fill in secrets
-npm run migrate:up     # create indexes
-npm run dev             # API on :4000
-npm run worker:dev      # background job worker (separate process)
+cp .env.example .env   # fill in secrets, including a MongoDB Atlas DB_URL
+npm run dev:all         # starts Redis (Docker), runs migrations, then API + worker together
 ```
 
+`dev:all` is the fast day-to-day loop — one command, hot reload on both the API and the worker,
+no Docker rebuild. See **[docs/local-dev-troubleshooting.md](./docs/local-dev-troubleshooting.md)**
+for what it does under the hood, how to run the pieces separately instead, and a full
+error-message-to-fix table.
+
 MongoDB must run as a replica set - `register`/Google-login use a transaction. A MongoDB Atlas
-cluster (the default `DB_URL` in `.env.example`) already satisfies this out of the box. If you
-point `DB_URL` at a self-hosted Mongo instead and hit
-`Transaction numbers are only allowed on a replica set member or mongos` or `ReplicaSetNoPrimary`,
-see **[docs/local-dev-troubleshooting.md](./docs/local-dev-troubleshooting.md)** for the exact commands.
+cluster (the default `DB_URL` in `.env.example`) already satisfies this out of the box.
 
 ## Full stack (API + worker + Redis + Prometheus + Grafana + Jaeger)
 
@@ -65,8 +65,9 @@ See **[docs/installation.md](./docs/installation.md)** for the full walkthrough 
 
 | Script                                                         | Purpose                                  |
 | -------------------------------------------------------------- | ---------------------------------------- |
-| `npm run dev`                                                | API with hot reload                      |
-| `npm run worker:dev`                                         | Background worker with hot reload        |
+| `npm run dev:all`                                            | Redis (Docker) + migrations + API + worker, all in one command, hot reload on both processes |
+| `npm run dev`                                                | API with hot reload (on its own)         |
+| `npm run worker:dev`                                         | Background worker with hot reload (on its own) |
 | `npm run migrate:up` / `migrate:down` / `migrate:status` | MongoDB index migrations (migrate-mongo) |
 | `npm run format`                                             | Prettier                                 |
 

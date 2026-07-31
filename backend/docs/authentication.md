@@ -283,6 +283,15 @@ Always returns the same generic success message regardless of whether the email 
 purpose-scoped reset token, `PASSWORD_RESET_TOKEN_EXPIRY` default 15m) only happens if the user
 exists and isn't soft-deleted.
 
+**The email itself** (`email.service.js#sendPasswordResetEmail`) contains a clickable link, not
+the raw token — `${CLIENT_URL_1}/auth/reset-password?token=<token>` (`env.frontend.url`, which
+reuses `CLIENT_URL_1`, the same origin already trusted by CORS, rather than a separate env var
+that could drift out of sync with it). That route is the frontend's `ResetPasswordPage`, which
+reads `token` via `useSearchParams()` — see
+[frontend routing-and-pages.md](../../frontend/docs/routing-and-pages.md). Get this wrong (e.g.
+`CLIENT_URL_1` still pointing at a dev URL in production) and the email's link silently points
+nowhere useful, even though the API side of the flow works fine either way.
+
 **Response `200`**
 ```json
 { "success": true, "data": { "message": "If an account with that email exists, a reset link has been sent." } }
@@ -294,7 +303,7 @@ Rate limit: `authLimiter`.
 
 **Request**
 ```json
-{ "token": "<token from the reset email>", "password": "N3wStr0ng!Pass" }
+{ "token": "<token from the reset email link's ?token= query param>", "password": "N3wStr0ng!Pass" }
 ```
 
 `token` is a JWT signed with the *access* secret and `purpose: "password_reset"` — verified with

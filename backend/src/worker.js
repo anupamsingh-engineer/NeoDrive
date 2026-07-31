@@ -1,3 +1,4 @@
+import "./config/dns.cjs";
 import logger from "./config/logger.js";
 import { connectDB, disconnectDB } from "./config/db.js";
 import redisClient from "./config/redis.js";
