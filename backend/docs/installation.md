@@ -74,8 +74,8 @@ wait on first.
 | API           | http://localhost:4000/healthz | `{"status":"ok"}`                                                                         |
 | API readiness | http://localhost:4000/readyz  | `{"status":"ok"}` (fails until Mongo Atlas/Redis are actually reachable)                  |
 | Prometheus    | http://localhost:9090         | Prometheus UI; check**Status → Targets** shows `app` as `UP`                     |
-| Grafana       | http://localhost:3001         | Pre-provisioned "Storage App Overview" dashboard (anonymous viewer access, no login needed) |
-| Jaeger        | http://localhost:16686        | Select service`storage-app-backend` to see traces once you've hit a few API routes        |
+| Grafana       | http://localhost:3001         | Pre-provisioned "NeoDrive Backend - Overview" dashboard (anonymous viewer access, no login needed) |
+| Jaeger        | http://localhost:16686        | Select service`neodrive-backend` to see traces once you've hit a few API routes        |
 
 ```bash
 npm run docker:logs   # tail app + worker logs

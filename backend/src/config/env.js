@@ -117,7 +117,7 @@ const config = {
 
   resend: {
     apiKey: requireEnvInProd("RESEND_API_KEY"),
-    fromAddress: process.env.RESEND_FROM_ADDRESS || "Storage App <otp@procodrr.dev>",
+    fromAddress: process.env.RESEND_FROM_ADDRESS || "NeoDrive <otp@procodrr.dev>",
   },
 
   razorpay: {
@@ -133,7 +133,7 @@ const config = {
   observability: {
     logLevel: process.env.LOG_LEVEL || (isProduction ? "info" : "debug"),
     metricsToken: process.env.METRICS_TOKEN,
-    otelServiceName: process.env.OTEL_SERVICE_NAME || "storage-app-backend",
+    otelServiceName: process.env.OTEL_SERVICE_NAME || "neodrive-backend",
     otelExporterOtlpEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
   },
 };

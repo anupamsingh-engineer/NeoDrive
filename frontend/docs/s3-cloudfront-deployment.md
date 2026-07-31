@@ -50,11 +50,11 @@ directly, separately reachable over plain HTTP with no TLS).
 
 ```bash
 aws s3api create-bucket \
-  --bucket storage-app-frontend \
+  --bucket neodrive-frontend \
   --region us-east-1
 
 aws s3api put-public-access-block \
-  --bucket storage-app-frontend \
+  --bucket neodrive-frontend \
   --public-access-block-configuration \
     BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 ```
@@ -91,7 +91,7 @@ Console-driven (the CLI's `create-distribution` needs a large hand-written JSON 
 console wizard is genuinely the faster path for a one-time setup like this).
 
 **Origin**:
-- Origin domain: pick your `storage-app-frontend` bucket from the dropdown (CloudFront shows S3
+- Origin domain: pick your `neodrive-frontend` bucket from the dropdown (CloudFront shows S3
   buckets specially here, not as a generic HTTP origin).
 - Origin access: **Origin access control settings (recommended)** → create a new OAC → keep the
   default signing behavior. CloudFront will show you a bucket policy to apply — copy it (or use
@@ -143,7 +143,7 @@ If you didn't copy the policy CloudFront offered you in step 3, here's the equiv
       "Effect": "Allow",
       "Principal": { "Service": "cloudfront.amazonaws.com" },
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::storage-app-frontend/*",
+      "Resource": "arn:aws:s3:::neodrive-frontend/*",
       "Condition": {
         "StringEquals": {
           "AWS:SourceArn": "arn:aws:cloudfront::<ACCOUNT_ID>:distribution/<DISTRIBUTION_ID>"
@@ -157,7 +157,7 @@ If you didn't copy the policy CloudFront offered you in step 3, here's the equiv
 Apply via **S3 console → bucket → Permissions → Bucket policy**, or:
 
 ```bash
-aws s3api put-bucket-policy --bucket storage-app-frontend --policy file://bucket-policy.json
+aws s3api put-bucket-policy --bucket neodrive-frontend --policy file://bucket-policy.json
 ```
 
 The `AWS:SourceArn` condition scopes this to *this specific distribution* — without it, any
@@ -200,8 +200,8 @@ GitHub Actions workflow needs — nothing else:
       "Effect": "Allow",
       "Action": ["s3:PutObject", "s3:DeleteObject", "s3:ListBucket"],
       "Resource": [
-        "arn:aws:s3:::storage-app-frontend",
-        "arn:aws:s3:::storage-app-frontend/*"
+        "arn:aws:s3:::neodrive-frontend",
+        "arn:aws:s3:::neodrive-frontend/*"
       ]
     },
     {
@@ -233,9 +233,9 @@ VITE_GOOGLE_CLIENT_ID=<your-google-client-id> \
 VITE_RAZORPAY_KEY_ID=<your-razorpay-key-id> \
 npm run build
 
-aws s3 sync dist/ s3://storage-app-frontend/ --delete \
+aws s3 sync dist/ s3://neodrive-frontend/ --delete \
   --cache-control "public, max-age=31536000, immutable" --exclude "index.html"
-aws s3 cp dist/index.html s3://storage-app-frontend/index.html \
+aws s3 cp dist/index.html s3://neodrive-frontend/index.html \
   --cache-control "no-cache, no-store, must-revalidate"
 
 aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "/*"
@@ -267,7 +267,7 @@ hand in step 7: `npm ci` → `npm run build` (with the `VITE_*` vars from secret
 |---|---|
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | From the IAM user created in step 6 |
 | `AWS_REGION` | The region you created the S3 bucket in (step 1) — **not** necessarily `us-east-1`; that requirement is only for the ACM certificate |
-| `S3_BUCKET_NAME` | `storage-app-frontend` (or whatever you named it) |
+| `S3_BUCKET_NAME` | `neodrive-frontend` (or whatever you named it) |
 | `CLOUDFRONT_DISTRIBUTION_ID` | From the distribution's detail page |
 | `VITE_API_BASE_URL` | `https://api.storage.anupamsingh.xyz/` (trailing slash) |
 | `VITE_API_ORIGIN` | `https://api.storage.anupamsingh.xyz` (no trailing slash — CSP needs a bare origin) |
@@ -287,14 +287,14 @@ your new production frontend origin.
 Check the Actions tab logs first — `npm run build` failures show up there directly. For an
 upload/invalidation failure specifically:
 ```bash
-aws s3 ls s3://storage-app-frontend/            # did the files actually land?
+aws s3 ls s3://neodrive-frontend/            # did the files actually land?
 aws cloudfront get-distribution --id <DISTRIBUTION_ID> --query 'Distribution.Status'
 ```
 
 ## Redeploying manually (without pushing)
 
 Either re-run the steps in section 7 locally, or trigger the workflow by hand: **Actions → Deploy
-StorageApp Frontend (S3 + CloudFront) → Run workflow**.
+NeoDrive Frontend (S3 + CloudFront) → Run workflow**.
 
 ## Updating CloudFront/S3 settings later
 

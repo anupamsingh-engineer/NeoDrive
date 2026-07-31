@@ -8,7 +8,7 @@ const AuthCard = ({ title, subtitle, children }) => (
     <div className="hidden w-[42%] shrink-0 flex-col justify-between bg-brand p-10 text-white lg:flex">
       <div className="flex items-center gap-2">
         <Cloud className="h-6 w-6" aria-hidden="true" />
-        <span className="text-lg font-semibold">Storage App</span>
+        <span className="text-lg font-semibold">NeoDrive</span>
       </div>
       <div>
         <p className="text-3xl font-semibold leading-snug">
@@ -19,7 +19,7 @@ const AuthCard = ({ title, subtitle, children }) => (
         </p>
       </div>
       <p className="text-xs text-white/50">
-        © {new Date().getFullYear()} Storage App
+        © {new Date().getFullYear()} NeoDrive
       </p>
     </div>
 

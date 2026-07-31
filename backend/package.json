@@ -1,5 +1,5 @@
 {
-  "name": "storage-app-backend",
+  "name": "neodrive-backend",
   "version": "2.0.0",
   "private": true,
   "type": "module",
@@ -23,7 +23,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Storage App backend (v2) - production-grade file storage API",
+  "description": "NeoDrive backend (v2) - production-grade file storage API",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.864.0",
     "@aws-sdk/cloudfront-signer": "^3.910.0",

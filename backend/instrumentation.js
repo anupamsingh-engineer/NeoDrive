@@ -5,7 +5,7 @@ import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { Resource } from "@opentelemetry/resources";
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from "@opentelemetry/semantic-conventions";
 
-const serviceName = process.env.OTEL_SERVICE_NAME || "storage-app-backend";
+const serviceName = process.env.OTEL_SERVICE_NAME || "neodrive-backend";
 const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 
 // Tracing is opt-in: without an OTLP endpoint configured we skip starting the SDK entirely

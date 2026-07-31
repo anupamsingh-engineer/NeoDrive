@@ -59,7 +59,7 @@ docker build \
   --build-arg VITE_API_ORIGIN=https://api.storage.anupamsingh.xyz \
   --build-arg VITE_GOOGLE_CLIENT_ID=<...> \
   --build-arg VITE_RAZORPAY_KEY_ID=<...> \
-  -t storage-app-frontend .
+  -t neodrive-frontend .
 ```
 
 The final image is just `nginx:1.27-alpine` serving a static `dist/` folder — no Node process runs

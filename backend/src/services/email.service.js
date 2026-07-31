@@ -18,7 +18,7 @@ export async function sendOtpEmail(email, otp) {
   const { error } = await resend.emails.send({
     from: env.resend.fromAddress,
     to: email,
-    subject: "Storage App OTP",
+    subject: "NeoDrive OTP",
     html,
   });
   if (error) throw new Error(`Resend error: ${error.message}`);
@@ -47,7 +47,7 @@ export async function sendPasswordResetEmail(email, resetToken) {
   const { error } = await resend.emails.send({
     from: env.resend.fromAddress,
     to: email,
-    subject: "Storage App Password Reset",
+    subject: "NeoDrive Password Reset",
     html,
   });
   if (error) throw new Error(`Resend error: ${error.message}`);

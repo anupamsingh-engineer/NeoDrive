@@ -1,4 +1,4 @@
-# Storage App Backend — Documentation
+# NeoDrive Backend — Documentation
 
 Deep-dive reference for every feature in this API: what each endpoint does, the exact request
 and response payloads, and the patterns the codebase leans on repeatedly (repository layer,

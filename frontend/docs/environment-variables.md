@@ -19,7 +19,7 @@ image is built without rebuilding. See
 | `VITE_GOOGLE_CLIENT_ID` | `configs/conf.js` → `GoogleSignInButton` | Must match the backend's own `GOOGLE_CLIENT_ID` (see [backend authentication.md](../../backend/docs/authentication.md#post-authgoogle)) — Google's sign-in button doesn't render at all if this is unset |
 | `VITE_RAZORPAY_KEY_ID` | *(intended)* `pages/app/subscriptions` | Should select which Razorpay account Checkout opens against — **currently not read**, see the gap below |
 | `VITE_SESSION_TIMEOUT` | *(intended)* `configs/apiConfig.js`'s `AUTH_CONFIG.sessionTimeout` | Should configure the idle-logout timer — **currently not read**, see the gap below |
-| `VITE_APP_NAME` | `configs/EnvironmentConfig.js` | Currently hardcoded to `"Storage App"` in both the `dev`/`prod` objects regardless of this var — effectively unused too, though lower-stakes than the two above |
+| `VITE_APP_NAME` | `configs/EnvironmentConfig.js` | Currently hardcoded to `"NeoDrive"` in both the `dev`/`prod` objects regardless of this var — effectively unused too, though lower-stakes than the two above |
 | `VITE_APP_VERSION` | — | Not read anywhere in `src/` as of this writing |
 | `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | `analytics/index.js` | PostHog only initializes (and is only bundled, via dynamic `import()`) if the key is set |
 | `VITE_MIXPANEL_TOKEN` | `analytics/index.js` | Same pattern for Mixpanel |

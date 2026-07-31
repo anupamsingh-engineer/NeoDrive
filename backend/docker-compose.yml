@@ -1,7 +1,7 @@
 # Pinned so this project resolves to the same name (and therefore the same containers/volumes)
 # whether you run `docker compose` from here directly or from the repo root via its
 # docker-compose.yml `include:`, which would otherwise default to "storage-app" instead.
-name: storage-app
+name: neodrive
 
 services:
   app:
@@ -94,9 +94,10 @@ services:
       - "4318:4318" # OTLP/http
 
 volumes:
-  # Explicit names (matching what the "backend"-named project already created) so they stay
-  # stable and keep their data now that the project itself is named "storage-app" above -
-  # otherwise Compose would derive new, empty volumes from the new project name.
+  # Explicit names (matching what the "backend"-named project originally created, before it was
+  # renamed to "storage-app" and then "neodrive") so they stay stable and keep their existing
+  # data regardless of the project name above - otherwise Compose would derive new, empty
+  # volumes every time the project name changes.
   redis_data:
     name: backend_redis_data
   grafana_data:

@@ -1,4 +1,4 @@
-# Storage App Backend — Frontend Integration Guide
+# NeoDrive Backend — Frontend Integration Guide
 
 Everything a frontend needs to integrate with this API from scratch: how the system fits together, the auth/session model, every endpoint with exact request/response payloads, and the recommended build order.
 
@@ -54,7 +54,7 @@ flowchart TB
 **Mind map (text form, for quick scanning):**
 
 ```
-Storage App API
+NeoDrive API
 ├── Auth & Session (cookie-based JWT)
 │   ├── OTP: send-otp → verify-otp (consumes the OTP, returns a verificationToken)
 │   ├── Register (spends the verificationToken, not the raw OTP - auto-login)

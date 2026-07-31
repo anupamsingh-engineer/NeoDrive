@@ -1,4 +1,4 @@
-# Storage App Backend (v2)
+# NeoDrive Backend (v2)
 
 Production-grade rebuild of the storage app API: file/folder storage backed by S3 +
 CloudFront, MongoDB, Redis, BullMQ background jobs, and a full observability stack

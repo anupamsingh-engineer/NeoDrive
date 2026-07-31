@@ -143,7 +143,7 @@ key** on the EC2 box instead — read-only, and if the box is ever compromised, 
 touch your personal account.
 
 ```bash
-ssh-keygen -t ed25519 -C "ec2-storage-app-deploy" -f ~/.ssh/id_ed25519 -N ""
+ssh-keygen -t ed25519 -C "ec2-neodrive-deploy" -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub
 ```
 
@@ -154,11 +154,11 @@ Back on the box:
 
 ```bash
 ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-git clone git@github.com:<your-username>/<your-repo>.git ~/storage-app
-cd ~/storage-app/backend
+git clone git@github.com:<your-username>/<your-repo>.git ~/neodrive
+cd ~/neodrive/backend
 ```
 
-(`~/storage-app` is the path referenced throughout the rest of this guide and in the GitHub
+(`~/neodrive` is the path referenced throughout the rest of this guide and in the GitHub
 Actions workflow in step 9 — adjust if you clone somewhere else.)
 
 ---
@@ -189,11 +189,11 @@ when a secret changes.
 
 ## 6. Bring the stack up
 
-From `~/storage-app` (the repo root — this uses the root `docker-compose.yml`, which just
+From `~/neodrive` (the repo root — this uses the root `docker-compose.yml`, which just
 `include:`s `backend/docker-compose.yml`, see that file's own comment for why):
 
 ```bash
-cd ~/storage-app
+cd ~/neodrive
 docker compose up --build -d app worker
 docker compose ps
 ```
@@ -221,7 +221,7 @@ Install nginx and drop in the reference config committed at
 ```bash
 sudo apt-get install -y nginx
 
-sudo cp ~/storage-app/backend/deploy/nginx/api.storage.anupamsingh.xyz.conf \
+sudo cp ~/neodrive/backend/deploy/nginx/api.storage.anupamsingh.xyz.conf \
         /etc/nginx/sites-available/api.storage.anupamsingh.xyz.conf
 sudo ln -s /etc/nginx/sites-available/api.storage.anupamsingh.xyz.conf \
            /etc/nginx/sites-enabled/
@@ -301,16 +301,16 @@ doesn't grow unbounded across deploys.
 | `SSH_PRIVATE_KEY` | the contents of the **EC2 access key** `.pem` file from step 1 (`cat your-key.pem`) — this is what lets the Actions runner SSH in as `ubuntu`, distinct from the GitHub deploy key generated on the box in step 4 |
 | `EC2_HOST` | the box's public IP or Elastic IP |
 | `EC2_USER` | `ubuntu` |
-| `EC2_APP_DIR` | `/home/ubuntu/storage-app` (or wherever you cloned it in step 4) |
+| `EC2_APP_DIR` | `/home/ubuntu/neodrive` (or wherever you cloned it in step 4) |
 
-Once those exist, every push to `main` (or a manual **Actions → Deploy StorageApp Backend (Docker)
+Once those exist, every push to `main` (or a manual **Actions → Deploy NeoDrive Backend (Docker)
 → Run workflow**) redeploys automatically. Watch it under the repo's **Actions** tab.
 
 ### If a deploy fails
 
 SSH in and check directly — the workflow just runs the same commands you'd run by hand:
 ```bash
-cd ~/storage-app
+cd ~/neodrive
 docker compose logs -f app worker   # or: npm run docker:logs, from backend/
 docker compose ps
 ```
@@ -321,7 +321,7 @@ docker compose ps
 
 ```bash
 ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
-cd ~/storage-app
+cd ~/neodrive
 git pull --ff-only
 docker compose up --build -d app worker
 docker image prune -f

@@ -1,4 +1,4 @@
-name: Deploy StorageApp Frontend (S3 + CloudFront)
+name: Deploy NeoDrive Frontend (S3 + CloudFront)
 
 # Full walkthrough, including the one-time S3/CloudFront/ACM/DNS setup and the repo secrets this
 # workflow needs, is in frontend/docs/s3-cloudfront-deployment.md.

@@ -1,4 +1,4 @@
-# Storage App
+# NeoDrive
 
 A Google-Drive-style file storage app — React frontend, Node/Express backend, direct-to-S3
 uploads, CloudFront-signed downloads, MongoDB Atlas, Redis, and BullMQ background jobs. This is

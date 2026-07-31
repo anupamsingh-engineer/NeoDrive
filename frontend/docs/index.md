@@ -1,4 +1,4 @@
-# Storage App Frontend — Documentation
+# NeoDrive Frontend — Documentation
 
 Deep-dive reference for how this frontend actually works: routing, auth/session handling, state
 management, the file upload/download flow, analytics, styling, and how it builds and deploys.
@@ -69,7 +69,7 @@ This folder replaces twelve loose `.md` files that used to sit at the frontend r
 `EVENTS.md`). Most of them were leftover boilerplate from the generic
 `react-redux-rtk-template` scaffold this project was bootstrapped from — they describe a
 DummyJSON demo login, `localStorage`-token auth, and generic `/users` CRUD examples, none of
-which match this app anymore (auth is cookie-based, the real API is the `storage-app` backend in
+which match this app anymore (auth is cookie-based, the real API is the NeoDrive backend in
 this repo). `design.md` described an entirely unrelated product's design system, not this one.
 They were checked against the actual source and retired rather than moved as-is — see each new
 doc for what's real today. `EVENTS.md`'s content survives, verified and updated, in

@@ -39,7 +39,7 @@ const SubscriptionsPage = () => {
       const checkout = new window.Razorpay({
         key: RAZORPAY_KEY_ID,
         subscription_id: data.subscriptionId,
-        name: "Storage App",
+        name: "NeoDrive",
         description: "Storage plan upgrade",
         handler: () => toast.success("Payment complete — your plan will update shortly."),
         modal: { ondismiss: () => setLoadingPlanId(null) },

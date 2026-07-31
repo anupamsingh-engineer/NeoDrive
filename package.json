@@ -1,5 +1,5 @@
 {
-  "name": "storage-app",
+  "name": "neodrive",
   "private": true,
   "scripts": {
     "docker:up": "docker compose up --build -d",

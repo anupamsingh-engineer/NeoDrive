@@ -1,6 +1,6 @@
-# Storage App Frontend
+# NeoDrive Frontend
 
-React 19 + Redux Toolkit/RTK Query client for the Storage App API (`../backend`) — file/folder
+React 19 + Redux Toolkit/RTK Query client for the NeoDrive API (`../backend`) — file/folder
 storage with cookie-based auth, direct-to-S3 uploads, CloudFront-signed downloads, and Razorpay
 subscriptions.
 

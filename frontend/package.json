@@ -1,6 +1,6 @@
 {
-  "name": "react-redux-rtk-template",
-  "description": "Production-grade React template with Redux Toolkit, RTK Query, and authentication",
+  "name": "neodrive-frontend",
+  "description": "NeoDrive frontend - React/Redux Toolkit client for a Google-Drive-style file storage app",
   "author": "Your Team",
   "license": "MIT",
   "private": true,

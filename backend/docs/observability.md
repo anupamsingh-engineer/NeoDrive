@@ -58,7 +58,7 @@ Opt-in — only starts if `OTEL_EXPORTER_OTLP_ENDPOINT` is set (`instrumentation
 are in place before any traced module is `require`/`import`ed). Auto-instruments the usual
 Node ecosystem (HTTP, Express, Mongoose, ioredis, etc.) via
 `@opentelemetry/auto-instrumentations-node`, exports OTLP/HTTP to `${endpoint}/v1/traces`, service
-name from `OTEL_SERVICE_NAME` (default `storage-app-backend`). In the Docker Compose stack this
+name from `OTEL_SERVICE_NAME` (default `neodrive-backend`). In the Docker Compose stack this
 points at the bundled Jaeger container; view traces at `http://localhost:16686`.
 
 ## Health vs. readiness

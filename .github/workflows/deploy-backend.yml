@@ -1,4 +1,4 @@
-name: Deploy StorageApp Backend (Docker)
+name: Deploy NeoDrive Backend (Docker)
 
 # Full walkthrough, including the one-time EC2/nginx/certbot setup and the repo secrets this
 # workflow needs, is in backend/docs/ec2-deployment.md.

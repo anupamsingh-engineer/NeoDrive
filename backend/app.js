@@ -51,7 +51,7 @@ app.use(hpp());
 app.use(globalLimiter);
 
 app.get("/", (req, res) => {
-  res.json({ message: "Storage App API" });
+  res.json({ message: "NeoDrive API" });
 });
 
 app.use(routes);

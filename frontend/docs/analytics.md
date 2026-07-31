@@ -53,14 +53,14 @@ team can match tag triggers against known names. **As shipped, it's inherited fr
 app's template** — the events are `SCHOLARSHIP_SEARCH`, `SCHOLARSHIP_VIEW`, `LOAN_VIEW`,
 `ONBOARDING_STEP_COMPLETE`, etc., none of which apply to a file storage app. There is currently
 **no `FILE_UPLOAD`, `FOLDER_CREATE`, `FILE_DOWNLOAD`, `SUBSCRIPTION_UPGRADE`**, or any other
-storage-app-specific event defined.
+NeoDrive-specific event defined.
 
 More importantly: **`useAnalytics()`/`track()`/`identify()`/`resetIdentity()` have no call sites
 anywhere in the app today** outside their own definitions — not on login, not on logout, not on
 file upload, not on folder create. The only analytics signal actually flowing right now is the
 automatic page-view tracking above. If you're picking this up: the plumbing (module, hook,
 provider wiring, dev-mode safety) is all there and correct — what's missing is (1) a
-storage-app-specific `EVENTS` catalog and (2) actually calling `track()`/`identify()`/
+NeoDrive-specific `EVENTS` catalog and (2) actually calling `track()`/`identify()`/
 `resetIdentity()` from the auth flow ([authentication.md](./authentication.md)) and the Drive page
 ([file-management.md](./file-management.md)).
 

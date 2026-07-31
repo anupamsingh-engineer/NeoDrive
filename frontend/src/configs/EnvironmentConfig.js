@@ -2,13 +2,13 @@
 const NODE_ENV = process.env.NODE_ENV;
 
 const dev = {
-  APP_NAME: "Storage App",
+  APP_NAME: "NeoDrive",
   API_ENDPOINT_URL: import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/",
   FRONTEND_DOMAIN: "localhost",
 };
 
 const prod = {
-  APP_NAME: "Storage App",
+  APP_NAME: "NeoDrive",
   API_ENDPOINT_URL: import.meta.env.VITE_API_BASE_URL || "https://api.example.com/",
   FRONTEND_DOMAIN: "example.com",
 };
