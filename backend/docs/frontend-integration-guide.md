@@ -19,6 +19,8 @@ flowchart TB
         USERS["/users*<br/>profile, admin user mgmt"]
         DIR["/directory/*<br/>folder tree"]
         FILE["/file/*<br/>upload/download/rename/delete"]
+        SHARE["/share<br/>create/list/revoke a link<br/>(requires auth)"]
+        PUBSHARE["/s/*<br/>resolve/download a share link<br/>(NO auth — public)"]
         SUB["/subscriptions<br/>Razorpay plans"]
         HOOK["/webhooks/razorpay<br/>(backend-to-backend only)"]
         HEALTH["/healthz /readyz /metrics<br/>(ops only)"]
@@ -36,9 +38,12 @@ flowchart TB
     UI --> USERS
     UI --> DIR
     UI --> FILE
+    UI --> SHARE
+    UI -. "anonymous visitor, no cookies" .-> PUBSHARE
     UI --> SUB
     FILE -. "direct PUT (upload) / redirect (download)" .-> S3
     FILE -. redirect .-> CF
+    PUBSHARE -. redirect .-> CF
     SUB -. checkout .-> RZP
     RZP -. webhook .-> HOOK
 
@@ -49,6 +54,8 @@ flowchart TB
     DIR --> REDIS
     FILE --> MONGO
     FILE --> REDIS
+    SHARE --> MONGO
+    PUBSHARE --> MONGO
 ```
 
 **Mind map (text form, for quick scanning):**
@@ -76,6 +83,11 @@ NeoDrive API
 │   ├── GET    — download/view (redirects to a signed CloudFront URL)
 │   ├── PATCH  — rename
 │   └── DELETE
+├── Sharing (read-only link sharing, file or folder-with-drill-down)
+│   ├── /share  (requires auth) — POST create/fetch, GET list mine, DELETE revoke
+│   └── /s      (NO auth — this is the one public data endpoint in the whole API)
+│       ├── GET :token             — file metadata, or a folder listing (?dirId= to drill down)
+│       └── GET :token/file/:fileId — 302 redirect to a signed download URL
 ├── Subscriptions (Razorpay storage plan upgrades)
 └── Ops only (not called by frontend): /healthz, /readyz, /metrics, /webhooks/razorpay
 ```
@@ -137,6 +149,8 @@ Three roles: `User` (default), `Manager`, `Admin`. Endpoints marked **Admin/Mana
 | Global | every request, per IP | 300 / 15 min |
 | Auth | `/auth/*` public endpoints, per IP+email | 10 / 15 min |
 | Upload | `/file/upload/initiate`, per user | 60 / min |
+| Share create | `POST /share`, per user | 20 / min |
+| Share resolve | `/s/*`, per IP (the public surface, so no user id to key on) | 300 / 15 min |
 
 Exceeding any of these returns `429 { message: "Too many requests, please try again later" }`. Build your OTP/login forms to handle this (disable resend button, show a cooldown message) rather than retry-looping.
 
@@ -158,8 +172,9 @@ Build and test in this order — each step unlocks the data you need for the nex
 7. **File actions**: download/view link, rename, delete.
 8. **Directory actions**: create folder, rename, delete.
 9. **Session management UI**: logout, logout-all, forgot/reset password, the silent-refresh interceptor (retrofit this in early, honestly — don't leave it for last).
-10. **Subscriptions** (Razorpay checkout) — needs a Razorpay frontend SDK integration on top of `POST /subscriptions`.
-11. **Admin screens** (list users, force-logout, delete user) — only relevant if your frontend has an admin panel; gate these behind the `role` you get back from `/users/me`.
+10. **Sharing** — a "Share" action on a file/folder that calls `POST /share` and shows the returned link (idempotent, so it's safe to call every time the share dialog opens), plus a **separate, fully public route/page** in your app (e.g. `/s/:token`) that calls `GET /s/:token` with no auth at all and renders file metadata or a read-only folder listing. This page must work for a logged-out visitor — don't put it behind whatever auth guard wraps the rest of your app.
+11. **Subscriptions** (Razorpay checkout) — needs a Razorpay frontend SDK integration on top of `POST /subscriptions`.
+12. **Admin screens** (list users, force-logout, delete user) — only relevant if your frontend has an admin panel; gate these behind the `role` you get back from `/users/me`.
 
 ---
 
@@ -600,7 +615,122 @@ Response `200`:
 
 ---
 
-### 4.5 Subscriptions — `/subscriptions`
+### 4.5 Sharing — `/share` (auth) and `/s` (public)
+
+Read-only link sharing for a file or an entire folder (visitors can drill into subfolders,
+read-only). This is the only feature split across two very different trust levels: `/share`
+manages links and requires the normal session cookie; `/s` resolves them and requires **nothing
+at all** — build the `/s/:token` page as a genuinely public route in your app, reachable by a
+logged-out visitor, not gated behind whatever wraps the rest of your UI.
+
+#### 🔒🛡️ `POST /share`
+Idempotent — calling it again for the same resource while a share is still active returns the
+same token/url, not a new one. Safe to call every time your "Share" dialog opens.
+
+Request:
+```json
+{ "resourceType": "file", "resourceId": "6a4e..." }
+```
+`resourceType` is `"file"` or `"directory"`. Sharing your own root directory is rejected.
+
+Response `201`:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "6a5f...",
+    "token": "kQ2f9x...",
+    "url": "https://your-frontend.example.com/s/kQ2f9x...",
+    "resourceType": "file",
+    "resourceId": "6a4e...",
+    "createdAt": "2026-08-01T12:00:00.000Z"
+  }
+}
+```
+`url` is pre-built server-side from the backend's own configured frontend origin + `/s/<token>` —
+that exact path (`/s/:token`) needs to exist as a real route in your app for the link to work.
+
+Errors: `400` sharing your own root directory / validation · `404` resource not found or not
+yours · `429` rate limited.
+
+---
+
+#### 🔒 `GET /share`
+Your active share links, newest first, no pagination.
+
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "6a5f...", "token": "kQ2f9x...", "url": "https://.../s/kQ2f9x...", "resourceType": "file", "resourceId": "6a4e...", "createdAt": "..." }
+  ]
+}
+```
+
+---
+
+#### 🔒🛡️ `DELETE /share/:id`
+`:id` is the **share's own id** (from the `data.id` above), not the shared file/folder's id.
+Takes effect immediately — the very next `GET /s/:token` for that link returns `404`, no delay.
+
+Response `200`:
+```json
+{ "success": true, "message": "Share revoked" }
+```
+
+---
+
+#### 🔓 `GET /s/:token` and `GET /s/:token?dirId=...`
+Public — no cookies sent, no CSRF header needed, works for a logged-out visitor. Returns file
+metadata for a file share, or a folder listing for a directory share (`?dirId=` drills into a
+subfolder; omit it for the shared folder's own root).
+
+File share response `200`:
+```json
+{ "success": true, "data": { "resourceType": "file", "file": { "id": "6a4e...", "name": "beach.jpg", "size": 204800, "extension": ".jpg" } } }
+```
+
+Directory share response `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "resourceType": "directory",
+    "shareRootId": "6a3d...",
+    "directory": { "id": "6a3d...", "name": "Vacation Photos" },
+    "files": [ { "id": "6a4e...", "name": "beach.jpg", "size": 204800, "extension": ".jpg" } ],
+    "directories": [ { "id": "6a3f...", "name": "Day 2" } ],
+    "ancestors": [ ]
+  }
+}
+```
+`ancestors` is the breadcrumb trail **cut at the share root** — build your breadcrumbs as
+`[...ancestors, {id, name: directory.name}]`, same pattern as the authenticated directory view,
+but note this trail never includes anything above the shared folder in the owner's real drive.
+Treat the implicit "back to root" affordance (e.g. a Home icon) as "go to the share root," not
+the visitor's own drive — visitors don't have one here.
+
+Errors: `404` for every failure — bad/missing/revoked token, or a `dirId` outside the shared
+subtree. All return the exact same generic message; don't build any UI logic that tries to
+distinguish "revoked" from "never existed" from "wrong folder" — the API deliberately doesn't
+tell you which.
+
+---
+
+#### 🔓 `GET /s/:token/file/:fileId?action=download`
+Public, same trust level as above. Not a JSON endpoint — a `302` redirect to a signed CloudFront
+URL, exactly like `GET /file/:id` (see §4.4) but reachable without a session. `fileId` must be
+the shared file itself, or a file living inside the shared folder — anything else is `404`.
+
+```html
+<a href="/s/kQ2f9x.../file/6a4e...">View</a>
+<a href="/s/kQ2f9x.../file/6a4e...?action=download">Download</a>
+```
+
+---
+
+### 4.6 Subscriptions — `/subscriptions`
 
 #### 🔒🛡️ `POST /subscriptions`
 Creates a Razorpay subscription for a storage-quota plan. This only creates the subscription server-side and records it as `pending` — you still need to drive the Razorpay Checkout UI on the frontend with the returned `subscriptionId` to actually collect payment. The user's `maxStorageInBytes` only updates once Razorpay fires the `subscription.activated` webhook (asynchronous — poll `GET /users/me` or `GET /directory` afterward to see the new quota reflected).
@@ -624,7 +754,7 @@ Known plan IDs → quota (for reference, e.g. to render a pricing table):
 
 ---
 
-### 4.6 Not called by the frontend
+### 4.7 Not called by the frontend
 
 - `GET /healthz`, `GET /readyz` — liveness/readiness probes (ops/uptime monitoring).
 - `GET /metrics` — Prometheus scrape endpoint, token-gated.
@@ -674,6 +804,11 @@ Known plan IDs → quota (for reference, e.g. to render a pricing table):
 | GET | `/file/:id?action=` | 🔒 | – | redirects |
 | PATCH | `/file/:id` | 🔒 | 🛡️ | `{newFilename}` |
 | DELETE | `/file/:id` | 🔒 | 🛡️ | – |
+| POST | `/share` | 🔒 | 🛡️ | `{resourceType, resourceId}` |
+| GET | `/share` | 🔒 | – | – |
+| DELETE | `/share/:id` | 🔒 | 🛡️ | – |
+| GET | `/s/:token?dirId=` | 🔓 | – | – |
+| GET | `/s/:token/file/:fileId?action=` | 🔓 | – | redirects |
 | POST | `/subscriptions` | 🔒 | 🛡️ | `{planId}` |
 
 \* `/auth/refresh` requires the `refreshToken` cookie to be present, but doesn't go through `requireAuth` (which checks the access token).

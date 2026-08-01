@@ -22,6 +22,7 @@ assume you've read that backend's [authentication.md](../../backend/docs/authent
 | [routing-and-pages.md](./routing-and-pages.md) | Full route tree, `AuthGuard` redirect rules, role-gating, every page and what it does |
 | [state-and-api.md](./state-and-api.md) | Redux Toolkit + RTK Query setup, the 5 API slices, `redux-persist` config, error handling/toast rules |
 | [file-management.md](./file-management.md) | The Drive page: two-phase upload (direct-to-S3 with progress), download/preview, rename/delete, folder navigation |
+| [sharing.md](./sharing.md) | The two client-side halves of link sharing: the owner's Share action on the Drive page, and the public, unauthenticated `/s/:token` page anyone with a link lands on |
 | [analytics.md](./analytics.md) | The multi-provider analytics module (GA4/GTM/PostHog/Mixpanel/Hotjar), event catalog, and a real gap worth knowing about |
 | [styling.md](./styling.md) | Tailwind v4 design tokens, the custom UI component library (no external UI kit), motion/animation primitives |
 | [environment-variables.md](./environment-variables.md) | Every `VITE_*` var, what it does, build-time vs runtime, and two vars that are wired but not actually read yet |
@@ -50,7 +51,7 @@ JS-visible `csrfToken` cookie, mirrored into an `x-csrf-token` header on mutatin
 ```
 src/pages/*                 → route-level screens, one folder per page (lazy-loaded)
 src/router/*                → route trees (PrivateRoutes = /app/*, PublicRoutes = everything else)
-src/store/api/features/*    → one RTK Query slice per backend feature (auth/directory/file/subscription/user)
+src/store/api/features/*    → one RTK Query slice per backend feature (auth/directory/file/share/subscription/user)
 src/store/slices/*          → Redux slices for client-only state (currently just auth)
 src/components/ui/*         → the shared component library (Button, Modal, Table, Toast, ...)
 src/components/layout/*     → AppLayout (sidebar+header, authenticated) / PublicLayout (marketing+auth pages)

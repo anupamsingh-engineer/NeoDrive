@@ -36,10 +36,12 @@ app.js (helmet, CORS, cookies, body parsing, mongo-sanitize, hpp, global rate li
   └─ src/routes/index.js
        ├─ /auth/*            (public + a couple of requireAuth+verifyCsrf routes)
        ├─ /users/*            requireAuth (+ RBAC on admin routes)
+       ├─ /s/*                fully public — no requireAuth, no verifyCsrf (share-link resolution)
        ├─ requireAuth + verifyCsrf, then:
        │    ├─ /directory/*
        │    ├─ /file/*
-       │    └─ /subscriptions/*
+       │    ├─ /subscriptions/*
+       │    └─ /share/*        create/list/revoke a share link (the resolution side is /s/* above)
        └─ (mounted separately in app.js, ahead of the JSON body parser) /webhooks/razorpay
 ```
 
@@ -73,6 +75,8 @@ the map:
 | **Direct-to-storage uploads** (client PUTs straight to S3 via a presigned URL; the API server never sees file bytes)                                                    | file upload                                         | [files.md](./files.md)                                    |
 | **Soft delete** (`deleted: true` flag, not a real document removal)                                                                                                   | users                                               | [users.md](./users.md)                                    |
 | **Storage provider interface** (`storage.interface.js` documents the contract; `s3.storage.js` + `cloudfront.storage.js` implement it)                            | files                                               | [files.md](./files.md)                                    |
+| **Public, token-gated resource access** (a route group with no `requireAuth` at all, authorized purely by an unguessable token) | sharing (`/s/*`)                                    | [sharing.md](./sharing.md)                                 |
+| **Synchronous cascade delete** (deleting a resource also deletes everything that references it, in the same request — not queued) | sharing (a `Share` never outlives its file/directory) | [sharing.md](./sharing.md)                                 |
 
 ## Folder map
 

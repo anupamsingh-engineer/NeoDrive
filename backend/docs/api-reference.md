@@ -65,6 +65,25 @@ All require Auth (+CSRF for non-GET).
 | PATCH | `/file/:id` | global | [files.md](./files.md#patch-fileid) |
 | DELETE | `/file/:id` | global | [files.md](./files.md#delete-fileid) |
 
+## Sharing (`/share`)
+
+All require Auth (+CSRF for non-GET).
+
+| Method | Path | Rate limit | Doc |
+|---|---|---|---|
+| POST | `/share` | shareCreateLimiter (20/min/user) | [sharing.md](./sharing.md#post-share--create-or-fetch-a-share-link) |
+| GET | `/share` | global | [sharing.md](./sharing.md#get-share--list-my-active-share-links) |
+| DELETE | `/share/:id` | global | [sharing.md](./sharing.md#delete-shareid--revoke) |
+
+## Public share links (`/s`)
+
+**No auth, no CSRF** — the one fully-public, unauthenticated data-fetching surface in this API.
+
+| Method | Path | Rate limit | Doc |
+|---|---|---|---|
+| GET | `/s/:token` | shareResolveLimiter (300/15m/IP) | [sharing.md](./sharing.md#get-stoken--public-view-file-metadata-or-browse-a-shared-folder) |
+| GET | `/s/:token/file/:fileId?action=download` | shareResolveLimiter | [sharing.md](./sharing.md#get-stokenfilefileidactiondownload--public-download-a-file-within-a-share) |
+
 ## Subscriptions (`/subscriptions`)
 
 All require Auth (+CSRF for non-GET).

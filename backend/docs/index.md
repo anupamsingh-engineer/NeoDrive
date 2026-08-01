@@ -19,6 +19,7 @@ that list.
 | [users.md](./users.md) | Current-user profile, admin user listing, forced logout, soft delete, RBAC roles |
 | [directories.md](./directories.md) | Folder tree, breadcrumb ancestors, create/rename/delete, recursive delete, size accounting |
 | [files.md](./files.md) | Two-phase S3 upload (initiate → direct-to-S3 PUT → complete), CloudFront signed downloads, rename/delete |
+| [sharing.md](./sharing.md) | Read-only link sharing for a file or folder (with drill-down), the `/share` (owner) vs `/s` (fully public) split, the folder-boundary security check, cascade delete |
 | [subscriptions-billing.md](./subscriptions-billing.md) | Plan catalog, Razorpay subscription creation, the `/webhooks/razorpay` event handler, quota grants |
 | [background-jobs.md](./background-jobs.md) | The three BullMQ queues (`email`, `s3-cleanup`, `directory-size-reconcile`) and the separate worker process |
 | [caching.md](./caching.md) | Redis cache-aside helper, the two caches in use, invalidation rules |
@@ -56,8 +57,10 @@ exempt from CSRF (no ambient cookie for an attacker to ride). See
 [authentication.md](./authentication.md) and [security.md](./security.md).
 
 **CSRF.** Required as an `x-csrf-token` header (mirroring the `csrfToken` cookie) on every
-cookie-authenticated, non-GET request under `/directory`, `/file`, `/subscriptions`, and the
-auth-session-mutating routes (`/auth/logout`, `/auth/logout-all`). Bearer-token requests skip it.
+cookie-authenticated, non-GET request under `/directory`, `/file`, `/subscriptions`, `/share`, and
+the auth-session-mutating routes (`/auth/logout`, `/auth/logout-all`). Bearer-token requests skip
+it. The public `/s/*` routes (share link resolution) have no session to forge and require neither
+auth nor CSRF — see [sharing.md](./sharing.md).
 
 **Validation.** Request bodies/queries are validated with [zod](https://zod.dev) schemas
 (`src/validators/*.schema.js`); a failed validation returns `400` with `details.fieldErrors`

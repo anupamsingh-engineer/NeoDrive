@@ -14,6 +14,9 @@ Code: `src/router/PagesRouter.jsx`, `src/router/routes/PrivateRoutes.jsx`,
   /auth/reset-password                 ResetPassword       (?token= from the email link)
   *                                     PageNotFound
 
+/s/:token                           → ShareView          (chromeless, sibling to PublicLayout —
+                                                             see below, NOT nested inside it)
+
 /app                                → AppLayout (header + sidebar, requires auth)
   /app                                  → redirect to /app/drive
   /app/drive                            Drive               (root directory listing)
@@ -45,6 +48,15 @@ delete a user — that finer-grained check happens inline in `UsersList`
 split exactly (`GET /users` → Admin+Manager; `DELETE /users/:id` → Admin only — see
 [backend security.md](../../backend/docs/security.md#rbac)).
 
+## Share links (`/s/:token`)
+
+Registered as a **sibling** route to `PublicLayout`, not nested inside it — it deliberately
+renders without `PublicHeader`/`PublicFooter` (chromeless), since it's a file/folder browser, not
+a marketing page. `AuthGuard` only special-cases paths starting with `/app` or `/auth` (see
+above); every other path, including this one, is left alone regardless of the visitor's auth
+state — exactly what's needed for a link that has to work for both a logged-in user and a
+complete stranger. Full detail: [sharing.md](./sharing.md).
+
 ## Pages
 
 ### Public
@@ -56,6 +68,7 @@ split exactly (`GET /users` → Admin+Manager; `DELETE /users/:id` → Admin onl
 | **Register** (`pages/public/Register`) | `/auth/register` | 3-step OTP signup: email (`sendOtp`) → code (`verifyOtp`, consumes it and returns a `verificationToken`) → name/password (`register`, spends the token, auto-authenticates). Split into three screens so a wrong/expired code doesn't discard an already-filled-in name/password form. Progress (step/email/token, never the password) is persisted in Redux and survives a page reload — see [authentication.md](./authentication.md#register-persisted-across-reloads) |
 | **ForgotPassword** | `/auth/forgot-password` | Submits an email to `POST /auth/forgot-password`; always shows the same generic success message regardless of whether the email exists (matches the backend's anti-enumeration design) |
 | **ResetPassword** | `/auth/reset-password` | Reads `?token=` from the URL (the link sent by email), submits a new password to `POST /auth/reset-password` |
+| **ShareView** (`pages/public/ShareView`) | `/s/:token` | Renders a shared file or a read-only, drill-down-able shared folder — no `PublicLayout` chrome (see "Share links" above). Works for both anonymous and logged-in visitors. Full breakdown in [sharing.md](./sharing.md) |
 
 `pages/public/_shared/` holds `AuthCard` (the shared card chrome around all four auth forms) and
 `GoogleSignInButton` (see [authentication.md](./authentication.md)).

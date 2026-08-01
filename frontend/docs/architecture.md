@@ -67,8 +67,8 @@ src/
 │   ├── useDebounce.jsx, useBreakpoint.jsx, useToggle.jsx
 ├── motion/                     Shared framer-motion variants (fadeIn, staggerContainer, modalPanel, ...)
 ├── pages/
-│   ├── public/                 Home, Login, Register, ForgotPassword, ResetPassword, _shared (AuthCard, GoogleSignInButton)
-│   └── app/                    drive (file manager), profile, subscriptions, users (admin)
+│   ├── public/                 Home, Login, Register, ForgotPassword, ResetPassword, ShareView (chromeless, /s/:token), _shared (AuthCard, GoogleSignInButton)
+│   └── app/                    drive (file manager, incl. ShareModal), profile, subscriptions, users (admin)
 ├── router/
 │   ├── PagesRouter.jsx           top-level split: /app/* vs everything else
 │   └── routes/                    PrivateRoutes.jsx, PublicRoutes.jsx
@@ -79,7 +79,7 @@ src/
 │   ├── api/
 │   │   ├── baseApi.js                 RTK Query's createApi() base
 │   │   ├── baseQuery.js                fetchBaseQuery + CSRF header + 401 reauth + 409 retry + toasts
-│   │   └── features/                    authApi, directoryApi, fileApi, subscriptionApi, userApi
+│   │   └── features/                    authApi, directoryApi, fileApi, shareApi, subscriptionApi, userApi
 │   ├── slices/
 │   │   ├── auth-slice/                    authSlice, authThunks, authSelectors, initialState
 │   │   └── registrationSlice.js            signup wizard progress (step/email/verificationToken) — see authentication.md
@@ -104,6 +104,7 @@ src/
 | **Centralized endpoint paths** | `configs/apiRoutes.js` | One file to update if a backend route changes, instead of hunting through every `*Api.js` |
 | **Direct-to-storage upload via XHR (not RTK Query) for progress events** | `pages/app/drive/hooks/useFileUpload.js` | RTK Query's `fetchBaseQuery` has no upload-progress hook; the actual S3 PUT uses raw `XMLHttpRequest` instead — see [file-management.md](./file-management.md) |
 | **Analytics behind a provider-agnostic facade** | `analytics/index.js` | Components call `track()`/`identify()`, never a specific SDK — providers can be swapped without touching call sites |
+| **Public route as a sibling, not nested inside the shared layout wrapper** | `router/routes/PublicRoutes.jsx` (`/s/:token`) | `ShareView` needs to render chromeless and stay reachable regardless of auth state — nesting it under `PublicLayout` would add marketing chrome it doesn't want; see [sharing.md](./sharing.md) |
 
 See [authentication.md](./authentication.md), [state-and-api.md](./state-and-api.md), and
 [file-management.md](./file-management.md) for the full detail behind each of these.

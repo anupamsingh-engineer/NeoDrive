@@ -44,8 +44,8 @@ dead code left from the original template.
 ## RTK Query setup
 
 `baseApi.js` is the single `createApi()` instance every feature slice injects endpoints into
-(`injectEndpoints`) — not five separate APIs. This means they all share one cache, one
-`tagTypes` list (`["User", "Directory"]`), and the same `baseQueryWithReauth` (see
+(`injectEndpoints`) — not six separate APIs. This means they all share one cache, one
+`tagTypes` list (`["User", "Directory", "Share"]`), and the same `baseQueryWithReauth` (see
 [authentication.md](./authentication.md#token-refresh-transparent-mutex-guarded) for the CSRF /
 401-reauth / 409-retry logic that wraps every single request through this app).
 
@@ -53,7 +53,7 @@ dead code left from the original template.
 auto-refetches when the tab regains focus or the network reconnects — a stale directory listing
 self-heals without any manual "refresh" action.
 
-### The five API slices
+### The six API slices
 
 | Slice | Endpoints | Cache tags |
 |---|---|---|
@@ -61,6 +61,7 @@ self-heals without any manual "refresh" action.
 | `userApi` | `getCurrentUser, getAllUsers, logoutUserById, deleteUser` | provides/invalidates `User` |
 | `directoryApi` | `getDirectory, createDirectory, renameDirectory, deleteDirectory` | provides `{Directory, id: dirId\|"ROOT"}` + `{Directory, id: "LIST"}`; every mutation invalidates `"LIST"` |
 | `fileApi` | `uploadInitiate, uploadComplete, renameFile, deleteFile` | mutations invalidate `{Directory, id: "LIST"}` — a file change refetches whatever directory listing is currently showing |
+| `shareApi` | `createShare, revokeShare, getShareView` | `createShare`/`revokeShare` invalidate `{Share, id: "LIST"}`; `getShareView` is unauthenticated but still a normal query (see [sharing.md](./sharing.md)) |
 | `subscriptionApi` | `getPlans, createSubscription` | no tags — plans are static, and a new subscription doesn't change anything the cache tracks (see the note on `maxStorageInBytes` below) |
 
 One notable shape mismatch handled deliberately: `createDirectory`'s folder name travels as a
@@ -72,7 +73,10 @@ unusual) contract exactly, see
 to a signed CloudFront URL, not JSON, so `fetchBaseQuery` (which expects a JSON/text response
 body) isn't the right tool. `fileApi.js` instead exports a plain helper,
 `getFileDownloadHref(fileId, action)`, that builds the URL for use in a real `<a href>` or
-`window.open()` — see [file-management.md](./file-management.md).
+`window.open()` — see [file-management.md](./file-management.md). `shareApi.js` has the exact
+same shape for the same reason: `getShareFileHref(token, fileId, action)` is a plain URL-builder,
+not a query, because `GET /s/:token/file/:fileId` is also a redirect — see
+[sharing.md](./sharing.md).
 
 ## Error handling & toasts
 

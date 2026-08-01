@@ -5,7 +5,7 @@ CloudFront, MongoDB, Redis, BullMQ background jobs, and a full observability sta
 (structured logs, Prometheus metrics, OpenTelemetry tracing).
 
 **Looking for API request/response payloads, or a deep dive into how a specific feature works?**
-See **[docs/](./docs/index.md)** — one doc per feature (auth, users, directories, files,
+See **[docs/](./docs/index.md)** — one doc per feature (auth, users, directories, files, sharing,
 subscriptions/webhooks, background jobs, caching, security, observability, error handling) plus a
 flat [API reference](./docs/api-reference.md) of every route.
 
@@ -23,6 +23,9 @@ functions (no classes, no DI container - imports are the wiring).
   access-token blacklist, RBAC, account lockout, purpose-scoped tokens for password
   reset. See `src/services/auth.service.js` and `src/services/token.service.js`.
 - **Storage**: S3 presigned uploads + CloudFront signed downloads (`src/services/storage/`).
+- **Sharing**: read-only link sharing for a file or folder (with drill-down); `/share` manages
+  links (auth required), `/s` resolves them — the one fully public, unauthenticated data
+  endpoint in the API (`src/services/share.service.js`).
 - **Caching**: cache-aside for user profile and directory listings, fail-open on Redis
   errors (`src/services/cache.service.js`).
 - **Background jobs**: BullMQ queues for S3 cleanup, email sending, and nightly
@@ -376,6 +379,72 @@ sequenceDiagram
     U->>CF: GET signed URL
     CF->>CF: validate signature + expiry
     CF-->>U: file bytes (served from the edge, S3 origin behind it)
+```
+
+</details>
+
+<details>
+<summary><strong>7b. Sharing — create a link, then an anonymous visitor resolves and downloads it</strong></summary>
+
+Read-only link sharing for a file or a folder (with drill-down). `/share` (create/list/revoke)
+requires the normal session; `/s` (resolve/download) requires nothing at all — the one public
+data-fetching surface in the API.
+
+```mermaid
+sequenceDiagram
+    participant O as Owner (Browser)
+    participant API as Express API
+    participant Mongo
+    participant V as Visitor (anonymous, no cookies)
+    participant CF as CloudFront
+
+    O->>API: POST /share {resourceType, resourceId} (Cookie: accessToken)
+    API->>API: verify ownership + root-directory guard
+    API->>Mongo: findActiveForResource (idempotent lookup)
+    alt already shared
+        API-->>O: 201 existing {token, url}
+    else new share
+        API->>Mongo: insert Share {token: random 256-bit, resourceType, resourceId, ownerId}
+        API-->>O: 201 {token, url}
+    end
+
+    Note over O,V: owner sends the url to anyone, no account required to open it
+
+    V->>API: GET /s/:token   (no cookies, no CSRF)
+    API->>Mongo: findByToken
+    alt missing or revoked
+        API-->>V: 404 generic "link invalid" message
+    else live
+        API->>Mongo: file metadata, or directory listing +\nboundary-checked ancestors (see 7c)
+        API-->>V: 200 { file } or { directory, files, directories, ancestors }
+    end
+
+    V->>API: GET /s/:token/file/:fileId?action=download
+    API->>API: boundary check — fileId is the shared file itself,\nor inside the shared folder's subtree (see 7c)
+    API->>API: sign CloudFront URL — same signer as an owner's own download
+    API-->>V: 302 redirect
+    V->>CF: GET signed URL
+    CF-->>V: file bytes
+```
+
+Revoking takes effect on the very next `GET /s/:token` — no cache in front of this lookup.
+
+</details>
+
+<details>
+<summary><strong>7c. Sharing — the folder-boundary security check</strong></summary>
+
+A visitor can browse anywhere inside a shared folder, and nowhere else. Applied identically to
+`?dirId=` on resolution and to `:fileId` on download.
+
+```mermaid
+flowchart TD
+    Req(["visitor supplies a dirId (or a file's parentDirId)\nwithin a directory share"]) --> Eq{"target === share root?"}
+    Eq -->|yes| Allow["allowed — it's the share root itself"]
+    Eq -->|no| Chain["walk real parentDirId links in Mongo:\nfindAncestorChain(target)"]
+    Chain --> In{"share root appears\nin that chain?"}
+    In -->|yes| Allow2["allowed — target is a genuine descendant"]
+    In -->|no| Deny["404 — same generic message as a\nmissing or revoked token"]
 ```
 
 </details>

@@ -9,8 +9,8 @@ an Artifact.
 Every diagram here was checked directly against the source it describes:
 `app.js`, `src/middlewares/auth.middleware.js`, `src/services/auth.service.js`,
 `src/services/directory.service.js`, `src/services/file.service.js`,
-`src/services/storage/{s3,cloudfront}.storage.js`, `src/services/cache.service.js`,
-`src/queues/*`.
+`src/services/share.service.js`, `src/services/storage/{s3,cloudfront}.storage.js`,
+`src/services/cache.service.js`, `src/queues/*`.
 
 ---
 
@@ -295,6 +295,75 @@ changes. See [files.md](./files.md#get-fileidactiondownload).
 
 ---
 
+## 7b. Sharing — create a link, then an anonymous visitor resolves and downloads it
+
+```mermaid
+sequenceDiagram
+    participant O as Owner (Browser)
+    participant API as Express API
+    participant Mongo
+    participant V as Visitor (anonymous, no cookies)
+    participant CF as CloudFront
+
+    O->>API: POST /share {resourceType, resourceId} (Cookie: accessToken)
+    API->>API: verify ownership + root-directory guard
+    API->>Mongo: findActiveForResource (idempotent lookup)
+    alt already shared
+        API-->>O: 201 existing {token, url}
+    else new share
+        API->>Mongo: insert Share {token: random 256-bit, resourceType, resourceId, ownerId}
+        API-->>O: 201 {token, url}
+    end
+
+    Note over O,V: owner sends the url to anyone, no account required to open it
+
+    V->>API: GET /s/:token   (no cookies, no CSRF)
+    API->>Mongo: findByToken
+    alt missing or revoked
+        API-->>V: 404 generic "link invalid" message
+    else live
+        API->>Mongo: file metadata, or directory listing +\nboundary-checked ancestors (see 7c)
+        API-->>V: 200 { file } or { directory, files, directories, ancestors }
+    end
+
+    V->>API: GET /s/:token/file/:fileId?action=download
+    API->>API: boundary check — fileId is the shared file itself,\nor inside the shared folder's subtree (see 7c)
+    API->>API: sign CloudFront URL — same signer as an owner's own download
+    API-->>V: 302 redirect
+    V->>CF: GET signed URL
+    CF-->>V: file bytes
+```
+
+Revoking (`DELETE /share/:id`) takes effect on the very next `GET /s/:token` — there's no cache in
+front of this lookup, deliberately (see [caching.md](./caching.md) and
+[sharing.md](./sharing.md#caching)). See [sharing.md](./sharing.md) for the full endpoint
+reference.
+
+---
+
+## 7c. Sharing — the folder-boundary security check
+
+The one property a folder share depends on: a visitor can browse anywhere *inside* the shared
+folder, and nowhere else. Applied identically to `?dirId=` on `GET /s/:token` and to `:fileId` on
+the download endpoint (via the file's `parentDirId`):
+
+```mermaid
+flowchart TD
+    Req(["visitor supplies a dirId (or a file's parentDirId)\nwithin a directory share"]) --> Eq{"target === share root?"}
+    Eq -->|yes| Allow["allowed — it's the share root itself"]
+    Eq -->|no| Chain["walk real parentDirId links in Mongo:\nfindAncestorChain(target)"]
+    Chain --> In{"share root appears\nin that chain?"}
+    In -->|yes| Allow2["allowed — target is a genuine descendant"]
+    In -->|no| Deny["404 — same generic message as a\nmissing or revoked token"]
+```
+
+Because the chain is walked from real `parentDirId` links stored in Mongo — never trusted from
+anything the client sends — there is no `dirId`/`fileId` a visitor can construct that passes this
+check without the resource actually living inside the shared folder. See
+[sharing.md](./sharing.md#the-security-boundary-check).
+
+---
+
 ## 8. Caching — where it comes in
 
 ```mermaid
@@ -374,6 +443,9 @@ enqueued them already returned success. See [background-jobs.md](./background-jo
 | Auth rate limit (OTP/login/register/...) | 10 / 15m per `ip:email` | `authLimiter` |
 | Refresh rate limit | 120 / 15m per IP | `refreshLimiter` |
 | Upload rate limit | 60 / min per user | `uploadLimiter` |
+| Share-create rate limit | 20 / min per user | `shareCreateLimiter` |
+| Share-resolve rate limit (public `/s/*`) | 300 / 15m per IP | `shareResolveLimiter` |
+| Share link lifetime | none — revoke-only, no expiry (v1) | [sharing.md](./sharing.md) |
 | Nightly size reconciliation | 02:00 daily | cron `0 2 * * *` |
 
 See [security.md](./security.md) for the reasoning behind each auth-related number.

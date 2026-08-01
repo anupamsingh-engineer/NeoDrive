@@ -58,8 +58,9 @@ The backend must be running first (`../backend`, default `http://localhost:4000`
 | [docs/flow-diagrams.md](./docs/flow-diagrams.md) | Visual reference: bootstrap, Redux/RTK Query store, every auth flow, routing, upload, caching, analytics, config cheat-sheet |
 | [docs/authentication.md](./docs/authentication.md) | Cookie session bootstrap, login/register/Google, CSRF, token refresh, idle timeout, background session revalidation |
 | [docs/routing-and-pages.md](./docs/routing-and-pages.md) | Full route tree, `AuthGuard` rules, role-gating, every page |
-| [docs/state-and-api.md](./docs/state-and-api.md) | Redux/RTK Query setup, the 5 API slices, error handling, two real bugs worth knowing about |
+| [docs/state-and-api.md](./docs/state-and-api.md) | Redux/RTK Query setup, the 6 API slices, error handling, two real bugs worth knowing about |
 | [docs/file-management.md](./docs/file-management.md) | The Drive page: two-phase upload with progress, preview, rename/delete |
+| [docs/sharing.md](./docs/sharing.md) | The owner's Share action on the Drive page, and the public, unauthenticated `/s/:token` page anyone with a link lands on |
 | [docs/analytics.md](./docs/analytics.md) | The multi-provider analytics module, event catalog, and a real gap (tracking isn't called anywhere yet) |
 | [docs/styling.md](./docs/styling.md) | Tailwind design tokens, the UI component library, motion primitives |
 | [docs/environment-variables.md](./docs/environment-variables.md) | Every `VITE_*` var — including two that are wired but not actually read |
@@ -347,6 +348,48 @@ flowchart TD
     Mutation --> Refetch["every active Directory:LIST\nsubscriber auto-refetches"]
     Refetch --> Render
     Action -->|just navigating| Query
+```
+
+</details>
+
+<details>
+<summary><strong>10b. Sharing — owner creates a link, an anonymous visitor opens it</strong></summary>
+
+`ShareModal` calls `createShare` on every open (idempotent server-side, so no client-side "is
+this already shared" tracking needed). `ShareView` is a chromeless public page at `/s/:token`,
+reachable with no session at all.
+
+```mermaid
+sequenceDiagram
+    participant O as Owner (DrivePage)
+    participant SM as ShareModal
+    participant RTK as shareApi
+    participant API as Backend
+    participant V as Visitor (ShareView, no session)
+
+    O->>SM: click "Share" on a file/folder
+    SM->>RTK: createShare({resourceType, resourceId})
+    RTK->>API: POST /share (Cookie: accessToken)
+    Note over API: idempotent - same token/url if already shared
+    API-->>SM: { token, url }
+    SM->>SM: render link + Copy + "Turn off link"
+
+    Note over O,V: owner sends the url to anyone
+
+    V->>V: navigate to /s/:token  (chromeless, no AuthGuard gate)
+    V->>RTK: getShareView({token, dirId})
+    RTK->>API: GET /s/:token?dirId=  (no cookies)
+    alt invalid/revoked/out-of-bounds
+        API-->>V: 404
+        V->>V: render "link invalid" empty state
+    else live
+        API-->>V: { file } or { directory, files, directories, ancestors }
+        V->>V: render file card, or a read-only table + breadcrumbs
+    end
+
+    V->>V: click Download / Preview
+    V->>API: GET /s/:token/file/:fileId?action=  (plain <a href>, not RTK Query)
+    API-->>V: 302 -> CloudFront signed URL
 ```
 
 </details>

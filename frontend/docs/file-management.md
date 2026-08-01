@@ -78,6 +78,11 @@ actual recursive-delete behavior, see
 families invalidate the `Directory` `"LIST"` tag on success, so the listing always reflects the
 change immediately.
 
+A `Share` action sits alongside Rename/Delete on both files and folders — opens `ShareModal`,
+which fetches (idempotently) a public link rather than mutating anything in this listing. Full
+detail in [sharing.md](./sharing.md), since it also covers the public page on the other end of
+that link.
+
 ## View mode
 
 `useDriveViewMode` toggles between `FileList` (table rows) and `FileGrid` (card tiles), persisted

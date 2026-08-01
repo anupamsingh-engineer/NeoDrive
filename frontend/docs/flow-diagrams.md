@@ -11,7 +11,7 @@ Every diagram here was checked directly against the source it describes: `src/ma
 `src/store/api/baseApi.js`, `src/store/api/baseQuery.js`, `src/store/api/features/*.js`,
 `src/store/slices/auth-slice/*`, `src/store/slices/registrationSlice.js`,
 `src/components/common/Guard/index.jsx`, `src/hooks/{useSessionGuard,useIdleTimeout}.js`,
-`src/pages/app/drive/*`, `src/analytics/*`.
+`src/pages/app/drive/*`, `src/pages/public/ShareView/*`, `src/analytics/*`.
 
 ---
 
@@ -286,6 +286,48 @@ The breadcrumb trail is never reconstructed client-side — it comes straight fr
 
 ---
 
+## 10b. Sharing — owner creates a link, an anonymous visitor opens it
+
+```mermaid
+sequenceDiagram
+    participant O as Owner (DrivePage)
+    participant SM as ShareModal
+    participant RTK as shareApi
+    participant API as Backend
+    participant V as Visitor (ShareView, no session)
+
+    O->>SM: click "Share" on a file/folder
+    SM->>RTK: createShare({resourceType, resourceId})
+    RTK->>API: POST /share (Cookie: accessToken)
+    Note over API: idempotent - same token/url if\nalready shared, see backend sharing.md
+    API-->>SM: { token, url }
+    SM->>SM: render link + Copy + "Turn off link"
+
+    Note over O,V: owner sends the url to anyone
+
+    V->>V: navigate to /s/:token  (chromeless, no AuthGuard gate)
+    V->>RTK: getShareView({token, dirId})
+    RTK->>API: GET /s/:token?dirId=  (no cookies)
+    alt invalid/revoked/out-of-bounds
+        API-->>V: 404
+        V->>V: render "link invalid" empty state
+    else live
+        API-->>V: { file } or { directory, files, directories, ancestors }
+        V->>V: render file card, or a read-only table + breadcrumbs
+    end
+
+    V->>V: click Download / Preview
+    V->>API: GET /s/:token/file/:fileId?action=  (plain <a href>, not RTK Query)
+    API-->>V: 302 -> CloudFront signed URL
+```
+
+`ShareModal` calls `createShare` on every open, not just once — it relies entirely on the
+backend's idempotency rather than tracking "is this already shared" client-side. `ShareView`'s
+`?dirId=` navigation is query-string based, unlike `DrivePage`'s path-param style — see
+[sharing.md](./sharing.md) for why.
+
+---
+
 ## 11. Analytics
 
 ```mermaid
@@ -315,6 +357,7 @@ automatic page views actually fire. See [analytics.md](./analytics.md#the-event-
 | API request timeout | 30s | `apiConfig.js` `API_CONFIG.timeout` |
 | Email-verification token (persisted) | 30m | mirrors the backend's `EMAIL_VERIFICATION_TOKEN_EXPIRY` |
 | Drive view-mode preference | indefinite | plain `localStorage`, key `drive-view-mode` (not Redux) |
+| Share link lifetime | none — revoke-only, no expiry (v1) | see [sharing.md](./sharing.md) |
 | Vite dev server | `:5173` | `vite.config.js` |
 | Razorpay key used at checkout | **hardcoded test key**, not `VITE_RAZORPAY_KEY_ID` | known gap, see [environment-variables.md](./environment-variables.md#vars-that-look-wired-but-arent) |
 
