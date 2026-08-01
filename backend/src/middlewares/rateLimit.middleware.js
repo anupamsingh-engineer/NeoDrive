@@ -56,3 +56,26 @@ export const uploadLimiter = rateLimit({
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   handler,
 });
+
+// Per-user, for creating share links - mirrors uploadLimiter's shape.
+export const shareCreateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore("shareCreate"),
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  handler,
+});
+
+// Per-IP: the public share-resolution/download endpoints are unauthenticated, so token
+// guessing/scraping risk is bounded by IP rather than by user (mirrors refreshLimiter's shape).
+export const shareResolveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore("shareResolve"),
+  keyGenerator: (req) => req.ip,
+  handler,
+});

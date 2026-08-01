@@ -5,6 +5,7 @@ import logger from "../config/logger.js";
 import * as fileRepository from "../repositories/file.repository.js";
 import * as directoryRepository from "../repositories/directory.repository.js";
 import * as userRepository from "../repositories/user.repository.js";
+import * as shareRepository from "../repositories/share.repository.js";
 import * as storageOps from "./file.storageOps.js";
 import { objectKey } from "./file.storageOps.js";
 import * as s3Storage from "./storage/s3.storage.js";
@@ -46,6 +47,7 @@ export async function deleteFile(userId, id) {
   if (!file) throw ApiError.notFound("File not found!");
 
   await fileRepository.deleteById(id);
+  await shareRepository.deleteManyByResourceIds({ fileIds: [id] });
   // Size is reserved at uploadInitiate time (see below), not at uploadComplete, so it must be
   // released here regardless of the file's isUploading status - it was already counted either way.
   const touchedIds = await directoryRepository.incrementSizeUpChain(file.parentDirId, -file.size);

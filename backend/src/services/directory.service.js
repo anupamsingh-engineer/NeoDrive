@@ -1,6 +1,7 @@
 import { ApiError } from "../errors/ApiError.js";
 import * as directoryRepository from "../repositories/directory.repository.js";
 import * as fileRepository from "../repositories/file.repository.js";
+import * as shareRepository from "../repositories/share.repository.js";
 import * as storageService from "./file.storageOps.js";
 import { objectKey } from "./file.storageOps.js";
 import * as cacheService from "./cache.service.js";
@@ -76,11 +77,18 @@ export async function deleteDirectory(userId, id, rootDirId) {
 
   const { files, directories } = await collectDirectoryContents(id);
   const keys = files.map(({ _id, extension }) => ({ Key: objectKey(_id, extension) }));
+  // Includes `id` itself, not just descendants - the directory being deleted could be directly
+  // shared, not just an ancestor of a shared item.
+  const allDeletedDirIds = [...directories.map(({ _id }) => _id), id];
 
   await Promise.all([
     storageService.scheduleS3Cleanup(keys),
     fileRepository.deleteManyByIds(files.map(({ _id }) => _id)),
-    directoryRepository.deleteManyByIds([...directories.map(({ _id }) => _id), id]),
+    directoryRepository.deleteManyByIds(allDeletedDirIds),
+    shareRepository.deleteManyByResourceIds({
+      fileIds: files.map(({ _id }) => _id),
+      dirIds: allDeletedDirIds,
+    }),
   ]);
 
   const touchedIds = await directoryRepository.incrementSizeUpChain(

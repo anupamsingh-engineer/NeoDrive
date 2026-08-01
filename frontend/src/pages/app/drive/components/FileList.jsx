@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Folder, Download, Pencil, Trash2 } from "lucide-react";
+import { Folder, Download, Share2, Pencil, Trash2 } from "lucide-react";
 import { Table, FileTypeIcon } from "../../../../components/ui";
 import { formatBytes } from "../../../../utils/utils";
 import { staggerContainer, listItem } from "../../../../motion";
@@ -9,7 +9,7 @@ import { getFileDownloadHref } from "../../../../store/api/features/fileApi";
 const actionButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-sm text-ink-soft transition-colors hover:bg-surface hover:text-ink";
 
-const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRename, onDelete }) => (
+const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRename, onDelete, onShare }) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
     <Table>
       <Table.Head>
@@ -67,6 +67,9 @@ const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
                       <Download className="h-3.5 w-3.5" />
                     </a>
                   )}
+                  <button type="button" aria-label="Share" title="Share" onClick={() => onShare(item)} className={actionButtonClass}>
+                    <Share2 className="h-3.5 w-3.5" />
+                  </button>
                   <button type="button" aria-label="Rename" title="Rename" onClick={() => onRename(item)} className={actionButtonClass}>
                     <Pencil className="h-3.5 w-3.5" />
                   </button>

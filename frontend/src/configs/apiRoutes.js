@@ -45,4 +45,16 @@ export const API_ROUTES = {
     PLANS: "subscriptions/plans",
     CREATE: "subscriptions",
   },
+
+  SHARE: {
+    CREATE: "share",
+    LIST: "share",
+    REVOKE: (shareId) => `share/${shareId}`,
+  },
+
+  // Public, unauthenticated endpoints - no cookies/CSRF required.
+  PUBLIC_SHARE: {
+    VIEW: (token, dirId) => `s/${token}${dirId ? `?dirId=${dirId}` : ""}`,
+    DOWNLOAD: (token, fileId, action) => `s/${token}/file/${fileId}${action ? `?action=${action}` : ""}`,
+  },
 };

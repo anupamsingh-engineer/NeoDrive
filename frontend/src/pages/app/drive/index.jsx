@@ -21,6 +21,7 @@ import UploadDropzone from "./components/UploadDropzone";
 import UploadProgressTray from "./components/UploadProgressTray";
 import NewFolderModal from "./components/NewFolderModal";
 import RenameModal from "./components/RenameModal";
+import ShareModal from "./components/ShareModal";
 import FilePreviewLightbox from "./components/FilePreviewLightbox";
 import VideoPreviewModal from "./components/VideoPreviewModal";
 import useDriveViewMode from "./hooks/useDriveViewMode";
@@ -43,6 +44,7 @@ const DrivePage = () => {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [renaming, setRenaming] = useState(null); // { type, id, name }
   const [deleting, setDeleting] = useState(null); // { type, id, name }
+  const [sharing, setSharing] = useState(null); // { type, id, name }
   const [isDeleting, setIsDeleting] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
   const [previewVideo, setPreviewVideo] = useState(null);
@@ -131,6 +133,7 @@ const DrivePage = () => {
     onPreviewVideo: setPreviewVideo,
     onRename: (item) => setRenaming({ type: item.itemType, id: item.id, name: item.name }),
     onDelete: (item) => setDeleting({ type: item.itemType, id: item.id, name: item.name }),
+    onShare: (item) => setSharing({ type: item.itemType, id: item.id, name: item.name }),
   };
 
   return (
@@ -166,6 +169,8 @@ const DrivePage = () => {
         onRename={handleRename}
         loading={renaming?.type === "directory" ? isRenamingDir : isRenamingFile}
       />
+
+      <ShareModal open={!!sharing} onClose={() => setSharing(null)} item={sharing} />
 
       <ConfirmDialog
         open={!!deleting}

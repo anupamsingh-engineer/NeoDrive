@@ -10,6 +10,7 @@ const Register = React.lazy(() => import("../../pages/public/Register"));
 const ForgotPassword = React.lazy(() => import("../../pages/public/ForgotPassword"));
 const ResetPassword = React.lazy(() => import("../../pages/public/ResetPassword"));
 const Home = React.lazy(() => import("../../pages/public/Home"));
+const ShareView = React.lazy(() => import("../../pages/public/ShareView"));
 
 const PublicPageRouter = () => {
   return (
@@ -23,6 +24,9 @@ const PublicPageRouter = () => {
           <Route path="auth/forgot-password" element={<ForgotPassword />} />
           <Route path="auth/reset-password" element={<ResetPassword />} />
         </Route>
+        {/* Chromeless - deliberately outside PublicLayout, works for both anonymous and
+            logged-in visitors since AuthGuard only special-cases /app and /auth. */}
+        <Route path="s/:token" element={<ShareView />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
     </Suspense>
