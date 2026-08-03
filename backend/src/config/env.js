@@ -9,7 +9,12 @@ function parseDurationMs(duration, fallbackMs) {
   const match = /^(\d+)\s*(d|h|m|s)?$/.exec(String(duration).trim());
   if (!match) return fallbackMs;
   const value = Number(match[1]);
-  const unitMs = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+  const unitMs = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
   return value * unitMs[match[2] || "s"];
 }
 
@@ -31,7 +36,9 @@ function requireEnvInProd(key, fallback = undefined) {
       console.error(`[config] Missing required production env var: ${key}`);
       process.exit(1);
     }
-    console.warn(`[config] Missing env var ${key} (allowed outside production)`);
+    console.warn(
+      `[config] Missing env var ${key} (allowed outside production)`,
+    );
     return fallback;
   }
   return value;
@@ -51,7 +58,9 @@ const config = {
   },
 
   cors: {
-    allowedOrigins: [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2].filter(Boolean),
+    allowedOrigins: [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2].filter(
+      Boolean,
+    ),
   },
 
   // Reuses CLIENT_URL_1 (already the CORS-trusted primary frontend origin) rather than a
@@ -73,7 +82,8 @@ const config = {
     // How long a verified OTP stays "usable" for finishing registration - generous enough to
     // fill in name/password (and survive an accidental page reload) without the OTP's own
     // 10-minute TTL being the limiting factor, since verify-otp consumes the OTP record itself.
-    emailVerificationExpiry: process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY || "30m",
+    emailVerificationExpiry:
+      process.env.EMAIL_VERIFICATION_TOKEN_EXPIRY || "30m",
   },
 
   csrf: {
@@ -89,7 +99,8 @@ const config = {
 
   otp: {
     ttlSeconds: Number(process.env.OTP_TTL_SECONDS) || 600,
-    resendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS) || 60,
+    resendCooldownSeconds:
+      Number(process.env.OTP_RESEND_COOLDOWN_SECONDS) || 60,
     maxVerifyAttempts: Number(process.env.OTP_MAX_VERIFY_ATTEMPTS) || 5,
   },
 
@@ -107,24 +118,31 @@ const config = {
     // multi-line PEM value in .env works for Node's --env-file loader but breaks tools like
     // `docker compose`, which also parses .env for its own variable substitution and doesn't
     // support multi-line quoted values.
-    privateKey: requireEnvInProd("CLOUDFRONT_PRIVATE_KEY")?.replace(/\\n/g, "\n"),
-    signedUrlExpirySeconds: Number(process.env.CLOUDFRONT_URL_EXPIRY_SECONDS) || 3600, // 1 hour
+    privateKey: requireEnvInProd("CLOUDFRONT_PRIVATE_KEY")?.replace(
+      /\\n/g,
+      "\n",
+    ),
+    signedUrlExpirySeconds:
+      Number(process.env.CLOUDFRONT_URL_EXPIRY_SECONDS) || 3600, // 1 hour
     // Deliberately much shorter than the owner default above: a signed URL's validity is baked
     // into its own signature/expiry and CloudFront never re-checks it against our Share
     // documents, so revoking a share can't retroactively invalidate a download URL that was
     // already handed out. Keeping this short is the only lever that narrows that window - it
     // can't be closed to zero without proxying downloads through this server (defeating the
     // point of CloudFront) or standing up signed-cookie + Lambda@Edge revocation checks.
-    shareSignedUrlExpirySeconds: Number(process.env.SHARE_DOWNLOAD_URL_EXPIRY_SECONDS) || 300, // 5 min
+    shareSignedUrlExpirySeconds:
+      Number(process.env.SHARE_DOWNLOAD_URL_EXPIRY_SECONDS) || 300, // 5 min
   },
 
   google: {
-    clientId: requireEnvInProd("GOOGLE_CLIENT_ID"),
+    clientId: "GOOGLE_CLIENT_ID",
+    // clientId: requireEnvInProd("GOOGLE_CLIENT_ID"),
   },
 
   resend: {
     apiKey: requireEnvInProd("RESEND_API_KEY"),
-    fromAddress: process.env.RESEND_FROM_ADDRESS || "NeoDrive <otp@procodrr.dev>",
+    fromAddress:
+      process.env.RESEND_FROM_ADDRESS || "NeoDrive <otp@procodrr.dev>",
   },
 
   razorpay: {
@@ -134,7 +152,8 @@ const config = {
   },
 
   storage: {
-    defaultMaxStorageBytes: Number(process.env.DEFAULT_MAX_STORAGE_BYTES) || 15 * 1024 ** 3,
+    defaultMaxStorageBytes:
+      Number(process.env.DEFAULT_MAX_STORAGE_BYTES) || 15 * 1024 ** 3,
   },
 
   observability: {
