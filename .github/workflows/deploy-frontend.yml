@@ -10,7 +10,7 @@ name: Deploy NeoDrive Frontend (S3 + CloudFront)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "frontend/**"
       - ".github/workflows/deploy-frontend.yml"

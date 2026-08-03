@@ -6,7 +6,7 @@ import { isRedisConnected } from "../config/redis.js";
 const router = express.Router();
 
 router.get("/healthz", (req, res) => {
-  res.status(200).json({ status: "ok" });
+  res.status(200).json({ status: "ok actions check" });
 });
 
 router.get(

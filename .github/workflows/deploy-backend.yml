@@ -11,7 +11,7 @@ name: Deploy NeoDrive Backend (Docker)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
@@ -47,7 +47,7 @@ jobs:
             set -e
 
             cd ${REMOTE_APP_DIR}
-            git pull --ff-only origin main
+            git pull --ff-only origin master
 
             echo "Building and starting containers..."
             docker compose up --build -d app worker
