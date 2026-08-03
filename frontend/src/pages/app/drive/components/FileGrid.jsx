@@ -24,7 +24,8 @@ const FileGrid = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
           layout
           variants={listItem}
           key={item.key}
-          className="group overflow-hidden rounded-md border border-border bg-canvas transition-colors hover:border-border-strong"
+          onClick={clickable ? handleClick : undefined}
+          className={`group overflow-hidden rounded-md border border-border bg-canvas transition-colors hover:border-border-strong ${clickable ? "cursor-pointer" : ""}`}
         >
           <button
             type="button"
@@ -48,7 +49,10 @@ const FileGrid = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
             <p className="flex-1 truncate text-xs text-ink" title={item.name}>
               {item.name}
             </p>
-            <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <div
+              className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+            >
               {item.itemType === "file" && (
                 <a
                   href={getFileDownloadHref(item.id, "download")}

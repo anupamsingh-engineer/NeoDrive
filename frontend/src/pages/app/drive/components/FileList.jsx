@@ -32,7 +32,13 @@ const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
           };
 
           return (
-            <motion.tr layout variants={listItem} key={item.key} className="transition-colors hover:bg-surface/60">
+            <motion.tr
+              layout
+              variants={listItem}
+              key={item.key}
+              onClick={clickable ? handleClick : undefined}
+              className={`transition-colors hover:bg-surface/60 ${clickable ? "cursor-pointer" : ""}`}
+            >
               <td className="px-4 py-3">
                 <button
                   type="button"
@@ -53,7 +59,7 @@ const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
               </td>
               <td className="px-4 py-3 text-sm text-ink-soft">{formatBytes(item.size)}</td>
               <td className="px-4 py-3 text-sm text-ink-soft">{new Date(item.updatedAt).toLocaleString()}</td>
-              <td className="px-4 py-3">
+              <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-end gap-1">
                   {item.itemType === "file" && (
                     <a
