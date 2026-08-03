@@ -151,6 +151,7 @@ Three roles: `User` (default), `Manager`, `Admin`. Endpoints marked **Admin/Mana
 | Upload | `/file/upload/initiate`, per user | 60 / min |
 | Share create | `POST /share`, per user | 20 / min |
 | Share resolve | `/s/*`, per IP (the public surface, so no user id to key on) | 300 / 15 min |
+| Directory zip download | `/directory/download`, `/directory/:id/download`, per user | 10 / min |
 
 Exceeding any of these returns `429 { message: "Too many requests, please try again later" }`. Build your OTP/login forms to handle this (disable resend button, show a cooldown message) rather than retry-looping.
 
@@ -170,7 +171,8 @@ Build and test in this order — each step unlocks the data you need for the nex
 5. **Directory browsing**: `GET /directory` (no id = root) — build your file-explorer/grid view against this before touching uploads.
 6. **File upload flow** (the trickiest one — see §5 dedicated walkthrough) — initiate → direct-to-S3 PUT → complete.
 7. **File actions**: download/view link, rename, delete.
-8. **Directory actions**: create folder, rename, delete.
+8. **Directory actions**: create folder, rename, delete, and download the whole folder as a zip
+   (a plain link, not a redirect this time — see §4.3).
 9. **Session management UI**: logout, logout-all, forgot/reset password, the silent-refresh interceptor (retrofit this in early, honestly — don't leave it for last).
 10. **Sharing** — a "Share" action on a file/folder that calls `POST /share` and shows the returned link (idempotent, so it's safe to call every time the share dialog opens), plus a **separate, fully public route/page** in your app (e.g. `/s/:token`) that calls `GET /s/:token` with no auth at all and renders file metadata or a read-only folder listing. This page must work for a logged-out visitor — don't put it behind whatever auth guard wraps the rest of your app.
 11. **Subscriptions** (Razorpay checkout) — needs a Razorpay frontend SDK integration on top of `POST /subscriptions`.
@@ -503,6 +505,25 @@ Errors: `400 { message: "Cannot delete your root directory" }` · `404` not foun
 
 ---
 
+#### 🔒 `GET /directory/download` and `GET /directory/:id/download`
+Downloads the folder (or your root, if `:id` is omitted) and everything nested inside it as a
+`.zip`. **Not a JSON endpoint** — unlike every other download in this API, this one isn't a
+redirect either; it's a real streamed response body (the API has to actually read every file's
+bytes to compress them). Use it as a plain link, same as a file download:
+
+```html
+<a href="/directory/6a3d.../download">Download folder</a>
+```
+
+Rate-limited tighter than other endpoints (10/min/user) since it's the one path that loads the
+API server itself. Rejects with `400` if the folder is empty, has more than 2000 files, or
+exceeds 2 GB total — there's no progress indicator or partial-zip fallback, so surface these as a
+clear inline message rather than a silent failed download.
+
+Errors: `400` empty folder / over a limit · `404` not found/not yours · `429` rate limited.
+
+---
+
 ### 4.4 Files — `/file`
 
 #### The upload flow is two API calls plus one direct upload to S3 — read this before wiring up a file picker.
@@ -808,6 +829,7 @@ Known plan IDs → quota (for reference, e.g. to render a pricing table):
 | POST | `/directory/:parentDirId?` | 🔒 | 🛡️ | header `dirname` |
 | PATCH | `/directory/:id` | 🔒 | 🛡️ | `{newDirName}` |
 | DELETE | `/directory/:id` | 🔒 | 🛡️ | – |
+| GET | `/directory/download` or `/directory/:id/download` | 🔒 | – | streams a zip |
 | POST | `/file/upload/initiate` | 🔒 | 🛡️ | `{parentDirId?, name?, size, contentType}` |
 | POST | `/file/upload/complete` | 🔒 | 🛡️ | `{fileId}` |
 | GET | `/file/:id?action=` | 🔒 | – | redirects |

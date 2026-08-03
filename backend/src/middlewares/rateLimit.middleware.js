@@ -79,3 +79,16 @@ export const shareResolveLimiter = rateLimit({
   keyGenerator: (req) => req.ip,
   handler,
 });
+
+// Per-user, low budget: unlike every other download in this app, a folder zip actually reads
+// file bytes through this server (see directory.service.js's prepareDirectoryZip), so it's the
+// one download path that can meaningfully load the API process itself if hammered.
+export const directoryDownloadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore("directoryDownload"),
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  handler,
+});

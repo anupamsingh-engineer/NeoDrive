@@ -1,8 +1,8 @@
 import { useRef } from "react";
-import { FolderPlus, Upload as UploadIcon, List, LayoutGrid } from "lucide-react";
+import { FolderPlus, Upload as UploadIcon, Download, List, LayoutGrid } from "lucide-react";
 import { Button, SegmentedControl } from "../../../../components/ui";
 
-const Toolbar = ({ viewMode, onViewModeChange, onNewFolder, onUploadFiles }) => {
+const Toolbar = ({ viewMode, onViewModeChange, onNewFolder, onUploadFiles, onDownloadFolder }) => {
   const inputRef = useRef(null);
 
   return (
@@ -16,6 +16,9 @@ const Toolbar = ({ viewMode, onViewModeChange, onNewFolder, onUploadFiles }) => 
         ]}
       />
       <div className="flex items-center gap-2">
+        <Button variant="secondary" icon={Download} onClick={onDownloadFolder} title="Download this folder as a zip">
+          Download
+        </Button>
         <Button variant="secondary" icon={FolderPlus} onClick={onNewFolder}>
           New Folder
         </Button>

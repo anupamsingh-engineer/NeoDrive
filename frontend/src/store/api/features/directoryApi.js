@@ -1,5 +1,6 @@
 import { baseApi } from "../baseApi";
 import { API_ROUTES } from "../../../configs/apiRoutes";
+import { API_CONFIG } from "../../../configs/apiConfig";
 
 export const directoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -41,6 +42,12 @@ export const directoryApi = baseApi.injectEndpoints({
   }),
   overrideExisting: true,
 });
+
+// GET /directory/:dirId/download streams a zip archive directly (not JSON, and not a redirect
+// like file downloads) — use as a plain link (<a href>), never as an RTK Query call.
+export function getDirectoryDownloadHref(dirId) {
+  return `${API_CONFIG.baseUrl}${API_ROUTES.DIRECTORY.DOWNLOAD(dirId)}`;
+}
 
 export const {
   useGetDirectoryQuery,

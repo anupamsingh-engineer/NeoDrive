@@ -313,6 +313,28 @@ flowchart TD
 </details>
 
 <details>
+<summary><strong>5b. Directory download — streaming a zip of the whole subtree</strong></summary>
+
+The one download path where the API server actually reads file bytes — every other download is
+a CloudFront redirect. Files are fetched from S3 one at a time, not all at once.
+
+```mermaid
+flowchart TD
+    Req(["GET /directory/download or /directory/:id/download"]) --> Own{"caller owns\nthis directory?"}
+    Own -->|no| E1["404"]
+    Own -->|yes| Walk["recursively collect every file\n(name + path) in the subtree"]
+    Walk --> Empty{"zero files\nanywhere?"}
+    Empty -->|yes| E2["400 folder is empty"]
+    Empty -->|no| Limits{"over 2000 files\nor 2 GB total?"}
+    Limits -->|yes| E3["400 too many files / too large"]
+    Limits -->|no| Stream["start zip stream (archiver),\nrespond immediately"]
+    Stream --> Loop["fetch each file from S3 and\nappend to the archive, one at a time"]
+    Loop --> Done["finalize archive\n(browser receives it as it streams)"]
+```
+
+</details>
+
+<details>
 <summary><strong>6. File upload — two-phase commit</strong></summary>
 
 Quota is reserved at *initiate*, not at *complete* — an abandoned upload still counts against

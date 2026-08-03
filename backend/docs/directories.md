@@ -141,3 +141,45 @@ subdirectories, at any depth.
 **Performance note**: the subtree walk (`collectDirectoryContents` in `directory.service.js`) is
 a recursive per-directory query, not a single aggregation — fine for typical folder depths, but
 worth knowing if you're deleting an unusually deep/wide tree.
+
+---
+
+## `GET /directory/download` and `GET /directory/:id/download`
+
+Downloads the directory (or your root, if `:id` is omitted) and everything nested inside it as a
+single `.zip` — the one read path in this app where the API server actually touches file bytes.
+Every other download (`GET /file/:id`, and share downloads) is a redirect to a CloudFront signed
+URL; this one streams a real response body, because building a zip means something has to
+actually read every file's contents to compress them.
+
+Rate limit: `directoryDownloadLimiter` (10/min, keyed by user id) — deliberately tighter than
+other download endpoints, since this is the one download path that can meaningfully load the API
+process itself.
+
+**Behavior**
+1. `404` if the directory doesn't exist or isn't owned by the caller.
+2. Recursively walks the subtree (`collectFilesForZip` in `directory.service.js` — same
+   recursive-per-directory shape as the delete walk above, but keeps each file's display name and
+   builds its path inside the archive from the real subfolder names, not from the S3 key).
+3. Rejects with `400` if the folder is empty (no files anywhere in the subtree, even if it has
+   empty subfolders), or if it exceeds either limit below.
+4. Streams a zip (`archiver`, moderate compression) directly as the response body — files are
+   fetched from S3 and appended to the archive **one at a time, in order**, not fetched all at
+   once, to avoid opening dozens/hundreds of S3 read streams simultaneously.
+
+**Limits** (hardcoded in `directory.service.js`, not currently env-configurable):
+
+| Limit | Value | Failure |
+|---|---|---|
+| File count | 2000 | `400 "This folder has too many files to download as a zip (limit: 2000)"` |
+| Total bytes | 2 GB | `400 "This folder is too large to download as a zip (limit: 2 GB)"` |
+
+**Response `200`**: `Content-Type: application/zip`, `Content-Disposition: attachment;
+filename="<folder-name>.zip"` — not a JSON envelope, use as a plain link
+(`<a href>`), same as a file download.
+
+**Errors**: `400` invalid id / empty folder / over a size or count limit · `404` not found/not
+owned · `429` rate limited. A failure that happens **mid-stream** (e.g. an S3 read error partway
+through) can't cleanly become a JSON error at that point since headers are already sent — the
+connection is simply destroyed; the browser sees a truncated/failed download, not an error
+message.

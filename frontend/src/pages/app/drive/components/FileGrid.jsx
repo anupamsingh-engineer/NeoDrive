@@ -4,6 +4,7 @@ import { FileTypeIcon } from "../../../../components/ui";
 import { staggerContainer, listItem } from "../../../../motion";
 import { isPreviewable, isVideo } from "../utils";
 import { getFileDownloadHref } from "../../../../store/api/features/fileApi";
+import { getDirectoryDownloadHref } from "../../../../store/api/features/directoryApi";
 
 const FileGrid = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRename, onDelete, onShare }) => (
   <motion.div {...staggerContainer(0.02)} className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -53,17 +54,16 @@ const FileGrid = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
               className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(e) => e.stopPropagation()}
             >
-              {item.itemType === "file" && (
-                <a
-                  href={getFileDownloadHref(item.id, "download")}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Download"
-                  className="rounded p-1 text-ink-faint transition-colors hover:bg-surface hover:text-ink"
-                >
-                  <Download className="h-3 w-3" />
-                </a>
-              )}
+              <a
+                href={isDir ? getDirectoryDownloadHref(item.id) : getFileDownloadHref(item.id, "download")}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={isDir ? "Download folder as zip" : "Download"}
+                title={isDir ? "Download folder as zip" : "Download"}
+                className="rounded p-1 text-ink-faint transition-colors hover:bg-surface hover:text-ink"
+              >
+                <Download className="h-3 w-3" />
+              </a>
               <button
                 type="button"
                 aria-label="Share"

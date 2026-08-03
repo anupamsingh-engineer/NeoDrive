@@ -76,7 +76,10 @@ body) isn't the right tool. `fileApi.js` instead exports a plain helper,
 `window.open()` — see [file-management.md](./file-management.md). `shareApi.js` has the exact
 same shape for the same reason: `getShareFileHref(token, fileId, action)` is a plain URL-builder,
 not a query, because `GET /s/:token/file/:fileId` is also a redirect — see
-[sharing.md](./sharing.md).
+[sharing.md](./sharing.md). `directoryApi.js`'s `getDirectoryDownloadHref(dirId)` is the same
+pattern for a different reason: `GET /directory/:id/download` isn't a redirect at all, it's a
+real streamed zip response body — either way, none of these three download endpoints belong
+behind `fetchBaseQuery`.
 
 ## Error handling & toasts
 

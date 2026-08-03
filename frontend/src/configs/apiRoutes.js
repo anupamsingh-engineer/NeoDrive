@@ -31,6 +31,7 @@ export const API_ROUTES = {
     CREATE: (parentDirId) => (parentDirId ? `directory/${parentDirId}` : "directory"),
     RENAME: (dirId) => `directory/${dirId}`,
     DELETE: (dirId) => `directory/${dirId}`,
+    DOWNLOAD: (dirId) => (dirId ? `directory/${dirId}/download` : "directory/download"),
   },
 
   FILE: {

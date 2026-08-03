@@ -5,6 +5,7 @@ import { formatBytes } from "../../../../utils/utils";
 import { staggerContainer, listItem } from "../../../../motion";
 import { isPreviewable, isVideo } from "../utils";
 import { getFileDownloadHref } from "../../../../store/api/features/fileApi";
+import { getDirectoryDownloadHref } from "../../../../store/api/features/directoryApi";
 
 const actionButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-sm text-ink-soft transition-colors hover:bg-surface hover:text-ink";
@@ -61,18 +62,16 @@ const FileList = ({ items, onOpenDirectory, onPreviewFile, onPreviewVideo, onRen
               <td className="px-4 py-3 text-sm text-ink-soft">{new Date(item.updatedAt).toLocaleString()}</td>
               <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-end gap-1">
-                  {item.itemType === "file" && (
-                    <a
-                      href={getFileDownloadHref(item.id, "download")}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Download"
-                      title="Download"
-                      className={actionButtonClass}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </a>
-                  )}
+                  <a
+                    href={isDir ? getDirectoryDownloadHref(item.id) : getFileDownloadHref(item.id, "download")}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={isDir ? "Download folder as zip" : "Download"}
+                    title={isDir ? "Download folder as zip" : "Download"}
+                    className={actionButtonClass}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
                   <button type="button" aria-label="Share" title="Share" onClick={() => onShare(item)} className={actionButtonClass}>
                     <Share2 className="h-3.5 w-3.5" />
                   </button>

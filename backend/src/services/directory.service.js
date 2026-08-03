@@ -1,11 +1,21 @@
+import { ZipArchive } from "archiver";
 import { ApiError } from "../errors/ApiError.js";
 import * as directoryRepository from "../repositories/directory.repository.js";
 import * as fileRepository from "../repositories/file.repository.js";
 import * as shareRepository from "../repositories/share.repository.js";
 import * as storageService from "./file.storageOps.js";
 import { objectKey } from "./file.storageOps.js";
+import * as s3Storage from "./storage/s3.storage.js";
 import * as cacheService from "./cache.service.js";
 import { directoryListingCacheKey, invalidateDirectoryListings, DIR_LISTING_CACHE_TTL_SECONDS } from "./cache.service.js";
+import logger from "../config/logger.js";
+
+// Keeps a single zip request bounded - this is the one read path in the app where the API
+// server actually touches file bytes (every other download is a CloudFront redirect, see
+// files.md), so an unbounded folder could tie up a request for a very long time or exhaust
+// memory/bandwidth. Chosen generously for a personal-drive-scale folder, not a hard product limit.
+const MAX_ZIP_FILES = 2000;
+const MAX_ZIP_TOTAL_BYTES = 2 * 1024 ** 3; // 2 GB
 
 export async function getDirectory(userId, dirId, rootDirId) {
   const id = dirId || rootDirId.toString();
@@ -65,6 +75,76 @@ async function collectDirectoryContents(id) {
   }
 
   return { files, directories };
+}
+
+// Same recursive-per-directory-query shape as collectDirectoryContents above, but walks full
+// docs (not just id/extension) since a zip entry needs the file's display name and the
+// subfolder names that make up its path inside the archive - the S3 key (fileId + extension)
+// has neither.
+async function collectFilesForZip(dirId, pathPrefix = "") {
+  const [files, directories] = await Promise.all([
+    fileRepository.findByParentDir(dirId),
+    directoryRepository.findChildDirectories(dirId),
+  ]);
+
+  let entries = files
+    .filter((file) => !file.isUploading)
+    .map((file) => ({
+      key: objectKey(file._id, file.extension),
+      zipPath: `${pathPrefix}${file.name}`,
+      size: file.size,
+    }));
+
+  for (const dir of directories) {
+    const nested = await collectFilesForZip(dir._id, `${pathPrefix}${dir.name}/`);
+    entries = [...entries, ...nested];
+  }
+
+  return entries;
+}
+
+// Returns a zip archive stream (a Node.js Readable) plus the filename to serve it as - the
+// caller (the controller) owns setting response headers and piping it, since services don't
+// touch req/res directly anywhere else in this codebase either.
+export async function prepareDirectoryZip(userId, id, rootDirId) {
+  const dirId = id || rootDirId.toString();
+
+  const directoryData = await directoryRepository.findByIdForUser(dirId, userId);
+  if (!directoryData) throw ApiError.notFound("Directory not found!");
+
+  const entries = await collectFilesForZip(dirId);
+  if (entries.length === 0) throw ApiError.badRequest("This folder is empty");
+  if (entries.length > MAX_ZIP_FILES) {
+    throw ApiError.badRequest(`This folder has too many files to download as a zip (limit: ${MAX_ZIP_FILES})`);
+  }
+
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
+  if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
+    const limitGb = (MAX_ZIP_TOTAL_BYTES / 1024 ** 3).toFixed(0);
+    throw ApiError.badRequest(`This folder is too large to download as a zip (limit: ${limitGb} GB)`);
+  }
+
+  const archive = new ZipArchive({ zlib: { level: 6 } });
+
+  // Fetched and appended one at a time, in order - archiver processes entries sequentially
+  // regardless, and this keeps at most one S3 read stream open at a time rather than racing
+  // to open hundreds of them up front. Runs concurrently with the controller piping `archive`
+  // to the response; archiver buffers internally so starting this just before the pipe is
+  // attached is safe.
+  (async () => {
+    try {
+      for (const entry of entries) {
+        const fileStream = await s3Storage.getFileStream(entry.key);
+        archive.append(fileStream, { name: entry.zipPath });
+      }
+      await archive.finalize();
+    } catch (err) {
+      logger.error({ err, userId, dirId }, "Folder zip stream failed mid-build");
+      archive.destroy(err);
+    }
+  })();
+
+  return { stream: archive, filename: `${directoryData.name}.zip` };
 }
 
 export async function deleteDirectory(userId, id, rootDirId) {

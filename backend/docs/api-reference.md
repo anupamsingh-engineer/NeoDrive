@@ -46,12 +46,13 @@ plus that role.
 
 All require Auth (+CSRF for non-GET).
 
-| Method | Path | Doc |
-|---|---|---|
-| GET | `/directory/:id?` | [directories.md](./directories.md#get-directoryid) |
-| POST | `/directory/:parentDirId?` (name via `dirname` header) | [directories.md](./directories.md#post-directoryparentdirid) |
-| PATCH | `/directory/:id` | [directories.md](./directories.md#patch-directoryid) |
-| DELETE | `/directory/:id` | [directories.md](./directories.md#delete-directoryid) |
+| Method | Path | Rate limit | Doc |
+|---|---|---|---|
+| GET | `/directory/:id?` | global | [directories.md](./directories.md#get-directoryid) |
+| POST | `/directory/:parentDirId?` (name via `dirname` header) | global | [directories.md](./directories.md#post-directoryparentdirid) |
+| PATCH | `/directory/:id` | global | [directories.md](./directories.md#patch-directoryid) |
+| DELETE | `/directory/:id` | global | [directories.md](./directories.md#delete-directoryid) |
+| GET | `/directory/download` or `/directory/:id/download` | directoryDownloadLimiter (10/min/user) | [directories.md](./directories.md#get-directorydownload-and-get-directoryiddownload) |
 
 ## Files (`/file`)
 

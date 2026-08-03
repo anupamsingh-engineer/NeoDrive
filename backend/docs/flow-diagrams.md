@@ -8,7 +8,7 @@ an Artifact.
 
 Every diagram here was checked directly against the source it describes:
 `app.js`, `src/middlewares/auth.middleware.js`, `src/services/auth.service.js`,
-`src/services/directory.service.js`, `src/services/file.service.js`,
+`src/services/directory.service.js` (incl. `prepareDirectoryZip`), `src/services/file.service.js`,
 `src/services/share.service.js`, `src/services/storage/{s3,cloudfront}.storage.js`,
 `src/services/cache.service.js`, `src/queues/*`.
 
@@ -221,6 +221,32 @@ flowchart TD
 S3 objects are deleted **asynchronously** via the `s3-cleanup` queue — the directory disappears
 from the API instantly, the underlying objects shortly after. See
 [directories.md](./directories.md).
+
+---
+
+## 5b. Directory download — streaming a zip of the whole subtree
+
+The one download path in the app where the API server actually reads file bytes — every other
+download is a CloudFront redirect (see 7, 7b below).
+
+```mermaid
+flowchart TD
+    Req(["GET /directory/download or /directory/:id/download"]) --> Own{"caller owns\nthis directory?"}
+    Own -->|no| E1["404"]
+    Own -->|yes| Walk["recursively collect every file\n(name + path) in the subtree"]
+    Walk --> Empty{"zero files\nanywhere?"}
+    Empty -->|yes| E2["400 folder is empty"]
+    Empty -->|no| Limits{"over 2000 files\nor 2 GB total?"}
+    Limits -->|yes| E3["400 too many files / too large"]
+    Limits -->|no| Stream["start zip stream (archiver),\nrespond immediately"]
+    Stream --> Loop["fetch each file from S3 and\nappend to the archive, one at a time"]
+    Loop --> Done["finalize archive\n(browser receives it as it streams)"]
+```
+
+Files are fetched from S3 **sequentially**, not all at once — keeps at most one S3 read stream
+open at a time rather than racing to open hundreds. Rate-limited tighter than other downloads
+(`directoryDownloadLimiter`, 10/min/user) for the same reason. See
+[directories.md](./directories.md#get-directorydownload-and-get-directoryiddownload).
 
 ---
 
@@ -443,6 +469,8 @@ enqueued them already returned success. See [background-jobs.md](./background-jo
 | Auth rate limit (OTP/login/register/...) | 10 / 15m per `ip:email` | `authLimiter` |
 | Refresh rate limit | 120 / 15m per IP | `refreshLimiter` |
 | Upload rate limit | 60 / min per user | `uploadLimiter` |
+| Directory zip download rate limit | 10 / min per user | `directoryDownloadLimiter` |
+| Directory zip download limits | 2000 files, 2 GB total | hardcoded, `directory.service.js` |
 | Share-create rate limit | 20 / min per user | `shareCreateLimiter` |
 | Share-resolve rate limit (public `/s/*`) | 300 / 15m per IP | `shareResolveLimiter` |
 | Share link lifetime | none — revoke-only, no expiry (v1) | [sharing.md](./sharing.md) |

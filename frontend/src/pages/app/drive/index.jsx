@@ -6,6 +6,7 @@ import {
   useCreateDirectoryMutation,
   useRenameDirectoryMutation,
   useDeleteDirectoryMutation,
+  getDirectoryDownloadHref,
 } from "../../../store/api/features/directoryApi";
 import {
   useRenameFileMutation,
@@ -140,7 +141,13 @@ const DrivePage = () => {
     <div className="flex flex-1 flex-col gap-5">
       <Breadcrumbs items={trail} onNavigate={handleBreadcrumbNavigate} />
 
-      <Toolbar viewMode={viewMode} onViewModeChange={setViewMode} onNewFolder={() => setNewFolderOpen(true)} onUploadFiles={uploadFiles} />
+      <Toolbar
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onNewFolder={() => setNewFolderOpen(true)}
+        onUploadFiles={uploadFiles}
+        onDownloadFolder={() => window.open(getDirectoryDownloadHref(dirId), "_blank", "noopener,noreferrer")}
+      />
 
       <UploadDropzone onFiles={uploadFiles}>
         {rows.length === 0 ? (

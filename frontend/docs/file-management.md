@@ -67,6 +67,19 @@ fetched-and-parsed response). Download uses the same helper with `action=downloa
 backend maps to `Content-Disposition: attachment` instead of `inline` — see
 [backend files.md](../../backend/docs/files.md#get-fileidactiondownload).
 
+## Folder download (zip)
+
+A folder gets the same Download icon as a file, both in `FileList`/`FileGrid` (per-row) and as a
+"Download" button in `Toolbar` for whichever folder is currently open (root included). Both use
+`getDirectoryDownloadHref(dirId)` (`directoryApi.js`) — a plain URL, same shape as
+`getFileDownloadHref`, but **not** a redirect this time: the backend streams a real `.zip`
+response body directly, since compressing a folder means actually reading every file's bytes
+(the one place in this app where that happens — see
+[backend directories.md](../../backend/docs/directories.md#get-directorydownload-and-get-directoryiddownload)).
+There's no client-side check for an empty/oversized folder before firing the request — a bad case
+just surfaces as the browser receiving a small JSON error body instead of a zip, same trade-off
+the plain-anchor file download pattern already accepts.
+
 ## Rename / delete
 
 Both directories and files share the same `RenameModal`/`ConfirmDialog` UI in `DrivePage`,

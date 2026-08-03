@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   DeleteObjectsCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -44,6 +45,21 @@ export async function getFileMetadata(key) {
     return await s3Client.send(command);
   } catch (err) {
     s3OperationErrorsTotal.inc({ operation: "getFileMetadata" });
+    throw err;
+  }
+}
+
+// Returns a Node.js Readable of the object's bytes - used only for folder-zip downloads, where
+// the server has to actually read file contents to compress them (every other read path in this
+// app is a redirect to a CloudFront signed URL, never bytes through this server - see files.md).
+export async function getFileStream(key) {
+  try {
+    const command = new GetObjectCommand({ Bucket: env.aws.bucket, Key: key });
+    const { Body } = await s3Client.send(command);
+    return Body;
+  } catch (err) {
+    s3OperationErrorsTotal.inc({ operation: "getFileStream" });
+    logger.error({ err, key }, "Failed to open S3 object read stream");
     throw err;
   }
 }
