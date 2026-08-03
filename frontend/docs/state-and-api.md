@@ -61,7 +61,7 @@ self-heals without any manual "refresh" action.
 | `userApi` | `getCurrentUser, getAllUsers, logoutUserById, deleteUser` | provides/invalidates `User` |
 | `directoryApi` | `getDirectory, createDirectory, renameDirectory, deleteDirectory` | provides `{Directory, id: dirId\|"ROOT"}` + `{Directory, id: "LIST"}`; every mutation invalidates `"LIST"` |
 | `fileApi` | `uploadInitiate, uploadComplete, renameFile, deleteFile` | mutations invalidate `{Directory, id: "LIST"}` — a file change refetches whatever directory listing is currently showing |
-| `shareApi` | `createShare, revokeShare, getShareView` | `createShare`/`revokeShare` invalidate `{Share, id: "LIST"}`; `getShareView` is unauthenticated but still a normal query (see [sharing.md](./sharing.md)) |
+| `shareApi` | `createShare, listShares, revokeShare, getShareView` | `createShare`/`revokeShare` invalidate `{Share, id: "LIST"}`; `listShares` provides it (powers `/app/shared`); `getShareView` is unauthenticated but still a normal query (see [sharing.md](./sharing.md)) |
 | `subscriptionApi` | `getPlans, createSubscription` | no tags — plans are static, and a new subscription doesn't change anything the cache tracks (see the note on `maxStorageInBytes` below) |
 
 One notable shape mismatch handled deliberately: `createDirectory`'s folder name travels as a

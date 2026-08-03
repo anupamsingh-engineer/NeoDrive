@@ -10,6 +10,7 @@ import { selectCurrentUser } from "../../store/slices/auth-slice";
 
 const Drive = React.lazy(() => import("../../pages/app/drive"));
 const Profile = React.lazy(() => import("../../pages/app/profile"));
+const SharedLinks = React.lazy(() => import("../../pages/app/shared"));
 const Subscriptions = React.lazy(() => import("../../pages/app/subscriptions"));
 const UsersList = React.lazy(() => import("../../pages/app/users"));
 
@@ -31,6 +32,7 @@ const AppPageRouter = () => {
           <Route path="drive" element={<Drive />} />
           <Route path="drive/:dirId" element={<Drive />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="shared" element={<SharedLinks />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route
             path="users"

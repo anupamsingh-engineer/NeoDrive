@@ -107,11 +107,30 @@ owned · `429` rate limited.
       "url": "https://app.example.com/s/kQ2f9x...",
       "resourceType": "directory",
       "resourceId": "665f1a...",
+      "resourceName": "Vacation Photos",
       "createdAt": "2026-08-01T12:00:00.000Z"
+    },
+    {
+      "id": "665fa2...",
+      "token": "9xK2fQ...",
+      "url": "https://app.example.com/s/9xK2fQ...",
+      "resourceType": "file",
+      "resourceId": "665f2a...",
+      "resourceName": "beach.jpg",
+      "resourceExtension": ".jpg",
+      "createdAt": "2026-08-01T11:00:00.000Z"
     }
   ]
 }
 ```
+`resourceExtension` is only present for a `"file"` share — omitted entirely (not `null`) for a
+`"directory"` share. Both `resourceName` and `resourceExtension` are looked up live from the
+current `File`/`Directory` document at list time — not stored on the `Share` document itself, so
+they stay in sync with the resource's current name even if it was renamed after sharing.
+`resourceName: null` would mean the lookup failed to find the resource, which should never happen
+in practice since cascade-delete (below) removes the `Share` document in the same request the
+resource is deleted — a `null` here would indicate that invariant broke, not an expected case.
+
 Sorted newest first. No pagination in v1 — a user's live share count is expected to stay small.
 
 ---

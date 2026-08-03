@@ -52,7 +52,24 @@ export async function createShare(ownerId, rootDirId, { resourceType, resourceId
 
 export async function listMyShares(ownerId) {
   const shares = await shareRepository.listByOwner(ownerId);
-  return shares.map(toShareResponse);
+
+  // The Share doc only stores resourceId - look up the current name/extension for display.
+  // Cascade-delete (see file/directory deleteFile/deleteDirectory) means a share should never
+  // outlive its resource, so a missing lookup here would indicate that invariant broke rather
+  // than an expected case - resourceName/resourceExtension come back null rather than throwing.
+  const resources = await Promise.all(
+    shares.map((share) =>
+      share.resourceType === "File"
+        ? fileRepository.findById(share.resourceId)
+        : directoryRepository.findById(share.resourceId)
+    )
+  );
+
+  return shares.map((share, i) => ({
+    ...toShareResponse(share),
+    resourceName: resources[i]?.name ?? null,
+    resourceExtension: share.resourceType === "File" ? (resources[i]?.extension ?? null) : undefined,
+  }));
 }
 
 export async function revokeShare(ownerId, shareId) {

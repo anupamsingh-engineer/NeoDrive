@@ -11,6 +11,12 @@ export const shareApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "Share", id: "LIST" }],
     }),
 
+    // GET /share — every active share link owned by the caller.
+    listShares: builder.query({
+      query: () => API_ROUTES.SHARE.LIST,
+      providesTags: [{ type: "Share", id: "LIST" }],
+    }),
+
     // DELETE /share/:shareId
     revokeShare: builder.mutation({
       query: (shareId) => ({ url: API_ROUTES.SHARE.REVOKE(shareId), method: "DELETE" }),
@@ -32,4 +38,4 @@ export function getShareFileHref(token, fileId, action) {
   return `${API_CONFIG.baseUrl}${API_ROUTES.PUBLIC_SHARE.DOWNLOAD(token, fileId, action)}`;
 }
 
-export const { useCreateShareMutation, useRevokeShareMutation, useGetShareViewQuery } = shareApi;
+export const { useCreateShareMutation, useListSharesQuery, useRevokeShareMutation, useGetShareViewQuery } = shareApi;

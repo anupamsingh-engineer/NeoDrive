@@ -38,6 +38,16 @@ the token — not the file/folder's own id) and closes the modal on success.
 `sharedListProps.onShare` in `DrivePage` exactly like `onRename`/`onDelete`. Share is offered for
 **both** files and directories (Download is file-only).
 
+## Owner side: managing every active link (`/app/shared`)
+
+`ShareModal` only ever shows *one* item's link at a time, at the moment you click Share. A
+separate page, `pages/app/shared/index.jsx` (route `/app/shared`, sidebar entry "Shared Links" in
+`AppSider.jsx`), lists **every** active share across the whole drive via `useListSharesQuery()` —
+name + type icon, a copy button, an "open in new tab" button, and a revoke button per row (behind
+a `ConfirmDialog`, since turning off a link is effectively irreversible for anyone who bookmarked
+it). This is the only place `GET /share` is actually called from — `ShareModal` itself never lists,
+it only ever creates/fetches the one share it's currently showing.
+
 ## Visitor side: `ShareView`
 
 A public page at `/s/:token`, registered as a route **sibling** to (not nested inside)
@@ -92,7 +102,8 @@ risk of a public page accidentally inheriting an authenticated action.
 | Endpoint | Kind | Notes |
 |---|---|---|
 | `createShare` | mutation | `POST /share`, invalidates the `Share` `"LIST"` tag |
-| `revokeShare` | mutation | `DELETE /share/:id`, invalidates the `Share` `"LIST"` tag |
+| `listShares` | query | `GET /share`, provides the `Share` `"LIST"` tag — powers `/app/shared` |
+| `revokeShare` | mutation | `DELETE /share/:id`, invalidates the `Share` `"LIST"` tag — refetches `/app/shared` automatically if it's open in another tab |
 | `getShareView` | query | `GET /s/:token?dirId=` — public, but still returns JSON, so it's a normal RTK Query endpoint despite carrying no auth |
 | `getShareFileHref(token, fileId, action)` | plain function, **not** an RTK Query endpoint | Builds a URL string for `<a href>`/`<img src>`, mirroring `getFileDownloadHref` in `fileApi.js` — `GET /s/:token/file/:fileId` is a redirect, not JSON, so `fetchBaseQuery` isn't the right tool for it either |
 

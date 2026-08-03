@@ -68,7 +68,7 @@ src/
 ├── motion/                     Shared framer-motion variants (fadeIn, staggerContainer, modalPanel, ...)
 ├── pages/
 │   ├── public/                 Home, Login, Register, ForgotPassword, ResetPassword, ShareView (chromeless, /s/:token), _shared (AuthCard, GoogleSignInButton)
-│   └── app/                    drive (file manager, incl. ShareModal), profile, subscriptions, users (admin)
+│   └── app/                    drive (file manager, incl. ShareModal), shared (manage all share links), profile, subscriptions, users (admin)
 ├── router/
 │   ├── PagesRouter.jsx           top-level split: /app/* vs everything else
 │   └── routes/                    PrivateRoutes.jsx, PublicRoutes.jsx

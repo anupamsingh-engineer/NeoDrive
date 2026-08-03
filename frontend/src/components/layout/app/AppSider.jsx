@@ -1,11 +1,12 @@
 import { useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Folder, User, Crown, Users } from "lucide-react";
+import { Folder, User, Share2, Crown, Users } from "lucide-react";
 import { selectCurrentUser } from "../../../store/slices/auth-slice";
 
 const NAV_ITEMS = [
   { key: "/app/drive", icon: Folder, label: "My Drive" },
+  { key: "/app/shared", icon: Share2, label: "Shared Links" },
   { key: "/app/profile", icon: User, label: "Profile" },
   { key: "/app/subscriptions", icon: Crown, label: "Upgrade Storage" },
   { key: "/app/users", icon: Users, label: "Users", roles: ["Admin", "Manager"] },

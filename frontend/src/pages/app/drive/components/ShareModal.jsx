@@ -20,7 +20,7 @@ const ShareModal = ({ open, onClose, item }) => {
 
     createShare({ resourceType: item.type, resourceId: item.id })
       .unwrap()
-      .then(setShare)
+      .then((res) => setShare(res.data))
       .catch((err) => {
         toast.error(err?.data?.message || "Failed to create share link");
         onClose();

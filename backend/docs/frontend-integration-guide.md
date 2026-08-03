@@ -656,17 +656,21 @@ yours · `429` rate limited.
 ---
 
 #### 🔒 `GET /share`
-Your active share links, newest first, no pagination.
+Your active share links, newest first, no pagination. This is the endpoint behind a "manage my
+shared links" screen.
 
 Response `200`:
 ```json
 {
   "success": true,
   "data": [
-    { "id": "6a5f...", "token": "kQ2f9x...", "url": "https://.../s/kQ2f9x...", "resourceType": "file", "resourceId": "6a4e...", "createdAt": "..." }
+    { "id": "6a5f...", "token": "kQ2f9x...", "url": "https://.../s/kQ2f9x...", "resourceType": "file", "resourceId": "6a4e...", "resourceName": "beach.jpg", "resourceExtension": ".jpg", "createdAt": "..." }
   ]
 }
 ```
+`resourceName` (and `resourceExtension`, file shares only — omitted for directory shares) is
+looked up live at request time, not stored on the share itself, so it reflects the current
+name even if the file/folder was renamed after sharing.
 
 ---
 

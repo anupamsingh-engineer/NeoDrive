@@ -21,6 +21,7 @@ Code: `src/router/PagesRouter.jsx`, `src/router/routes/PrivateRoutes.jsx`,
   /app                                  → redirect to /app/drive
   /app/drive                            Drive               (root directory listing)
   /app/drive/:dirId                      Drive               (subfolder listing)
+  /app/shared                            SharedLinks         (every active share you own, revoke any of them)
   /app/profile                          Profile
   /app/subscriptions                    Subscriptions       (plans + Razorpay checkout)
   /app/users                            UsersList           (Admin/Manager only — role-gated inline, see below)
@@ -78,6 +79,7 @@ complete stranger. Full detail: [sharing.md](./sharing.md).
 | Page | Route | What it does |
 |---|---|---|
 | **Drive** (`pages/app/drive`) | `/app/drive`, `/app/drive/:dirId` | The file manager — grid/list toggle, upload (drag-drop + picker), folder create/rename/delete, file rename/delete, preview (image/video lightbox). Full breakdown in [file-management.md](./file-management.md) |
+| **SharedLinks** (`pages/app/shared`) | `/app/shared` | Every active share link you own in one table — name, copy/open/revoke per row. See [sharing.md](./sharing.md) |
 | **Profile** (`pages/app/profile`) | `/app/profile` | Name/email/picture/role, a storage-used progress bar (`usedStorageInBytes` / `maxStorageInBytes` from `GET /users/me`), and logout / logout-everywhere buttons |
 | **Subscriptions** (`pages/app/subscriptions`) | `/app/subscriptions` | Lists plans from `GET /subscriptions/plans`, starts Razorpay Checkout on `POST /subscriptions` — see [state-and-api.md](./state-and-api.md) for the payment flow detail and a real bug worth knowing about |
 | **UsersList** (`pages/app/users`) | `/app/users` | Admin/Manager: paginated user table, force-logout-everywhere per user, delete (Admin only) — thin client over [backend users.md](../../backend/docs/users.md) |
