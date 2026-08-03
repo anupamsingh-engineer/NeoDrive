@@ -92,3 +92,17 @@ export const directoryDownloadLimiter = rateLimit({
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   handler,
 });
+
+// Per-IP and tighter than directoryDownloadLimiter above: this is the same server-load concern
+// (zip-building reads real file bytes through this process) but on the fully public /s/* surface,
+// where there's no authenticated user id to key on - only an IP, a weaker identity signal more
+// easily shared across legitimate visitors (NAT, corporate proxies), so the budget is kept small.
+export const shareDirectoryDownloadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore("shareDirDownload"),
+  keyGenerator: (req) => req.ip,
+  handler,
+});

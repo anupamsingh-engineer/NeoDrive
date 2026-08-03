@@ -103,15 +103,12 @@ async function collectFilesForZip(dirId, pathPrefix = "") {
   return entries;
 }
 
-// Returns a zip archive stream (a Node.js Readable) plus the filename to serve it as - the
-// caller (the controller) owns setting response headers and piping it, since services don't
-// touch req/res directly anywhere else in this codebase either.
-export async function prepareDirectoryZip(userId, id, rootDirId) {
-  const dirId = id || rootDirId.toString();
-
-  const directoryData = await directoryRepository.findByIdForUser(dirId, userId);
-  if (!directoryData) throw ApiError.notFound("Directory not found!");
-
+// Returns a zip archive stream (a Node.js Readable) plus the filename to serve it as, for an
+// ALREADY-AUTHORIZED directory id - the caller is responsible for verifying the requester is
+// allowed to read this subtree before calling this (ownership for the owner's own drive,
+// share-boundary containment for a shared folder - see share.service.js). Shared by both so the
+// zip-building mechanics (walk, limits, sequential S3 fetch, archiver wiring) exist in one place.
+export async function buildDirectoryZip(dirId, zipFilename) {
   const entries = await collectFilesForZip(dirId);
   if (entries.length === 0) throw ApiError.badRequest("This folder is empty");
   if (entries.length > MAX_ZIP_FILES) {
@@ -139,12 +136,23 @@ export async function prepareDirectoryZip(userId, id, rootDirId) {
       }
       await archive.finalize();
     } catch (err) {
-      logger.error({ err, userId, dirId }, "Folder zip stream failed mid-build");
+      logger.error({ err, dirId }, "Folder zip stream failed mid-build");
       archive.destroy(err);
     }
   })();
 
-  return { stream: archive, filename: `${directoryData.name}.zip` };
+  return { stream: archive, filename: `${zipFilename}.zip` };
+}
+
+// Caller (the controller) owns setting response headers and piping the returned stream, since
+// services don't touch req/res directly anywhere else in this codebase either.
+export async function prepareDirectoryZip(userId, id, rootDirId) {
+  const dirId = id || rootDirId.toString();
+
+  const directoryData = await directoryRepository.findByIdForUser(dirId, userId);
+  if (!directoryData) throw ApiError.notFound("Directory not found!");
+
+  return buildDirectoryZip(dirId, directoryData.name);
 }
 
 export async function deleteDirectory(userId, id, rootDirId) {

@@ -238,13 +238,45 @@ above.
 
 ---
 
+## `GET /s/:token/download` — public: download a whole shared folder (or subfolder) as a zip
+
+Only valid for a **directory share** — `400` if the share is a file share (there's nothing to
+zip; use the single-file download above instead). `?dirId=` (optional) zips a subfolder of the
+share instead of the share root.
+
+Rate limit: `shareDirectoryDownloadLimiter` (5/min, keyed by IP) — tighter than
+`shareResolveLimiter` above and tighter even than the owner-facing `directoryDownloadLimiter`
+(10/min/user, see [directories.md](./directories.md)), since this is the same
+"the API server actually reads file bytes" concern (see there for the full mechanics — this
+endpoint reuses `directoryService.buildDirectoryZip` directly, same 2000-file/2GB limits, same
+sequential S3-fetch-and-append) but on the fully public surface, keyed by IP rather than an
+authenticated user id.
+
+**Behavior**: same boundary check as everything else on this page — `dirId` must be the share
+root itself or a genuine descendant of it, or `404`.
+
+**Response `200`**: `Content-Type: application/zip`, `Content-Disposition: attachment;
+filename="<folder-name>.zip"` — not a JSON envelope, use as a plain link.
+
+**Errors**: `400` share is a file, not a folder / folder empty / over a size or count limit ·
+`404` invalid token or `dirId` outside the shared subtree · `429` rate limited.
+
+Unlike the single-file download above, this one has **no** "already-issued link outlives
+revocation" caveat (see [below](#revocation-vs-an-already-issued-download-link)) — there's no
+signed URL handed out ahead of time to go stale; the zip is built fresh, straight from a live
+`Share` lookup, on every single request.
+
+---
+
 ## The security boundary check
 
 The one property this whole feature depends on: **a visitor with a folder-share link can browse
 anywhere inside that folder, and nowhere else** — not a sibling folder, not the owner's true
 root, not an unrelated file elsewhere in the owner's drive.
 
-Both `?dirId=` (browsing) and `:fileId` (downloading) go through the same check, built on top of
+`?dirId=` (browsing and zip download) and `:fileId` (single-file download) all go through the
+same check — one helper, `isWithinShareSubtree` in `share.service.js`, shared by all three call
+sites rather than each re-implementing it slightly differently — built on top of
 `directoryRepository.findAncestorChain` (already used elsewhere for breadcrumbs — see
 [directories.md](./directories.md)):
 

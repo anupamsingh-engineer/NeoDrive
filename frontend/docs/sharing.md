@@ -87,7 +87,12 @@ useGetShareViewQuery({ token, dirId });
   `Breadcrumbs` UI component, and the same preview components for previewable files inside it.
   There is no Rename/Delete/Share UI anywhere on this page — the backend response itself doesn't
   return the fields those actions would need, and there is no mutation endpoint reachable without
-  auth anyway.
+  auth anyway. Both files **and** subfolders get a per-row Download button — a subfolder's
+  Download downloads it as a zip (`getShareDirectoryZipHref(token, dirId)`), same as a file's
+  downloads that one file. A header-level "Download as zip" button next to the folder name zips
+  whichever folder is currently being viewed (the share root, or the current `?dirId=` subfolder)
+  — the exact same UX as `DrivePage`'s Toolbar "Download" button for the authenticated Drive page,
+  see [backend sharing.md](../../backend/docs/sharing.md#get-stokendownload--public-download-a-whole-shared-folder-or-subfolder-as-a-zip).
 - **Invalid/revoked token** → a generic "This link is invalid or has been turned off" empty
   state. The backend returns the exact same `404` for a missing token, a revoked one, or a
   `dirId` that escapes the shared folder (see
@@ -112,6 +117,7 @@ risk of a public page accidentally inheriting an authenticated action.
 | `revokeShare` | mutation | `DELETE /share/:id`, invalidates the `Share` `"LIST"` tag — refetches `/app/shared` automatically if it's open in another tab |
 | `getShareView` | query | `GET /s/:token?dirId=` — public, but still returns JSON, so it's a normal RTK Query endpoint despite carrying no auth |
 | `getShareFileHref(token, fileId, action)` | plain function, **not** an RTK Query endpoint | Builds a URL string for `<a href>`/`<img src>`, mirroring `getFileDownloadHref` in `fileApi.js` — `GET /s/:token/file/:fileId` is a redirect, not JSON, so `fetchBaseQuery` isn't the right tool for it either |
+| `getShareDirectoryZipHref(token, dirId)` | plain function, **not** an RTK Query endpoint | `GET /s/:token/download?dirId=` streams a real zip body (not a redirect this time), same reasoning as `getDirectoryDownloadHref` in `directoryApi.js` |
 
 `getShareView` goes through the same `baseQueryWithReauth` wrapper as every other query — that's
 harmless here (an anonymous visitor's request never gets a `401`, so the reauth branch simply

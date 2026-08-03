@@ -388,6 +388,12 @@ anything the client sends — there is no `dirId`/`fileId` a visitor can constru
 check without the resource actually living inside the shared folder. See
 [sharing.md](./sharing.md#the-security-boundary-check).
 
+**`GET /s/:token/download`** (zip download of a shared folder) goes through this exact same check
+before calling the same `buildDirectoryZip` used by the owner-facing zip download — see
+diagram 5b above for the zip-building mechanics (walk, limits, sequential S3 fetch); the only
+difference here is what gates access to `dirId` (share-boundary containment instead of
+`userId` ownership).
+
 ---
 
 ## 8. Caching — where it comes in
@@ -475,6 +481,7 @@ enqueued them already returned success. See [background-jobs.md](./background-jo
 | Share-resolve rate limit (public `/s/*`) | 300 / 15m per IP | `shareResolveLimiter` |
 | Share link lifetime | none — revoke-only, no expiry (v1) | [sharing.md](./sharing.md) |
 | Share download signed URL | 5 min (shorter than the owner default above on purpose) | `shareSignedUrlExpirySeconds` / `SHARE_DOWNLOAD_URL_EXPIRY_SECONDS` — see [sharing.md](./sharing.md#revocation-vs-an-already-issued-download-link) for why revoke can't retroactively kill an already-issued one |
+| Share folder zip download rate limit | 5 / min per IP | `shareDirectoryDownloadLimiter` |
 | Nightly size reconciliation | 02:00 daily | cron `0 2 * * *` |
 
 See [security.md](./security.md) for the reasoning behind each auth-related number.

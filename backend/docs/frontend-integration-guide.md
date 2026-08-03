@@ -151,6 +151,7 @@ Three roles: `User` (default), `Manager`, `Admin`. Endpoints marked **Admin/Mana
 | Upload | `/file/upload/initiate`, per user | 60 / min |
 | Share create | `POST /share`, per user | 20 / min |
 | Share resolve | `/s/*`, per IP (the public surface, so no user id to key on) | 300 / 15 min |
+| Share folder zip download | `GET /s/:token/download`, per IP | 5 / min |
 | Directory zip download | `/directory/download`, `/directory/:id/download`, per user | 10 / min |
 
 Exceeding any of these returns `429 { message: "Too many requests, please try again later" }`. Build your OTP/login forms to handle this (disable resend button, show a cooldown message) rather than retry-looping.
@@ -760,6 +761,23 @@ the shared file itself, or a file living inside the shared folder — anything e
 
 ---
 
+#### 🔓 `GET /s/:token/download` and `GET /s/:token/download?dirId=...`
+Public, same trust level as above. Only valid for a **folder** share (`400` if the share is a
+single file — there's nothing to zip). Downloads the shared folder, or a subfolder within it, as
+a `.zip` — not a redirect this time, a real streamed response body, same as the owner-facing
+`GET /directory/:id/download` (§4.3). Rate-limited tighter than everything else here
+(5/min/IP) since it's the one public path where the API server actually reads file bytes.
+
+```html
+<a href="/s/kQ2f9x.../download">Download whole shared folder</a>
+<a href="/s/kQ2f9x.../download?dirId=6a3f...">Download a subfolder</a>
+```
+
+Errors: `400` share is a file / folder empty / over a size or count limit · `404` invalid token
+or `dirId` outside the shared subtree · `429` rate limited.
+
+---
+
 ### 4.6 Subscriptions — `/subscriptions`
 
 #### 🔒🛡️ `POST /subscriptions`
@@ -839,6 +857,7 @@ Known plan IDs → quota (for reference, e.g. to render a pricing table):
 | GET | `/share` | 🔒 | – | – |
 | DELETE | `/share/:id` | 🔒 | 🛡️ | – |
 | GET | `/s/:token?dirId=` | 🔓 | – | – |
+| GET | `/s/:token/download?dirId=` | 🔓 | – | streams a zip |
 | GET | `/s/:token/file/:fileId?action=` | 🔓 | – | redirects |
 | POST | `/subscriptions` | 🔒 | 🛡️ | `{planId}` |
 

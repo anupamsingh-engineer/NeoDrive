@@ -66,6 +66,7 @@ across multiple API instances, not per-process.
 | `shareCreateLimiter` | 1 min | 20 | user id (falls back to IP) | `POST /share` |
 | `shareResolveLimiter` | 15 min | 300 | IP | `/s/*` — the one fully-public data-fetching surface, so it can't key on a user id |
 | `directoryDownloadLimiter` | 1 min | 10 | user id (falls back to IP) | `GET /directory/download`, `/directory/:id/download` — tighter than other download endpoints since it's the one read path where the API server actually reads file bytes (zip streaming), see [directories.md](./directories.md) |
+| `shareDirectoryDownloadLimiter` | 1 min | 5 | IP | `GET /s/:token/download` — same zip-streaming concern as `directoryDownloadLimiter`, tighter still since it's on the fully public surface with no user id to key on |
 
 All of them return `429 "Too many requests, please try again later"` via the shared `handler`.
 

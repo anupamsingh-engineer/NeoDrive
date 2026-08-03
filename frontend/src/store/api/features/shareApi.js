@@ -38,4 +38,10 @@ export function getShareFileHref(token, fileId, action) {
   return `${API_CONFIG.baseUrl}${API_ROUTES.PUBLIC_SHARE.DOWNLOAD(token, fileId, action)}`;
 }
 
+// GET /s/:token/download streams a zip archive directly (not JSON, not a redirect) — only valid
+// for a directory share. Mirrors getDirectoryDownloadHref.
+export function getShareDirectoryZipHref(token, dirId) {
+  return `${API_CONFIG.baseUrl}${API_ROUTES.PUBLIC_SHARE.DOWNLOAD_ZIP(token, dirId)}`;
+}
+
 export const { useCreateShareMutation, useListSharesQuery, useRevokeShareMutation, useGetShareViewQuery } = shareApi;

@@ -83,6 +83,7 @@ All require Auth (+CSRF for non-GET).
 | Method | Path | Rate limit | Doc |
 |---|---|---|---|
 | GET | `/s/:token` | shareResolveLimiter (300/15m/IP) | [sharing.md](./sharing.md#get-stoken--public-view-file-metadata-or-browse-a-shared-folder) |
+| GET | `/s/:token/download` | shareDirectoryDownloadLimiter (5/min/IP) | [sharing.md](./sharing.md#get-stokendownload--public-download-a-whole-shared-folder-or-subfolder-as-a-zip) |
 | GET | `/s/:token/file/:fileId?action=download` | shareResolveLimiter | [sharing.md](./sharing.md#get-stokenfilefileidactiondownload--public-download-a-file-within-a-share) |
 
 ## Subscriptions (`/subscriptions`)

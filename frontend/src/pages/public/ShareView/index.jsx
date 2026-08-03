@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Folder, Download, Link2Off } from "lucide-react";
-import { useGetShareViewQuery, getShareFileHref } from "../../../store/api/features/shareApi";
+import { useGetShareViewQuery, getShareFileHref, getShareDirectoryZipHref } from "../../../store/api/features/shareApi";
 import { Spinner, EmptyState, Breadcrumbs, Table, FileTypeIcon, Button } from "../../../components/ui";
 import { formatBytes } from "../../../utils/utils";
 import { isPreviewable, isVideo } from "../../app/drive/utils";
@@ -95,9 +95,18 @@ const ShareView = () => {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-4xl flex-col gap-5 p-6">
-      <div>
-        <p className="text-sm text-ink-soft">Shared folder</p>
-        <h1 className="text-xl font-semibold text-ink">{view.directory.name}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-ink-soft">Shared folder</p>
+          <h1 className="text-xl font-semibold text-ink">{view.directory.name}</h1>
+        </div>
+        <Button
+          variant="secondary"
+          icon={Download}
+          onClick={() => window.open(getShareDirectoryZipHref(token, dirId), "_blank", "noopener,noreferrer")}
+        >
+          Download as zip
+        </Button>
       </div>
 
       <Breadcrumbs items={trail} onNavigate={handleNavigate} />
@@ -143,18 +152,20 @@ const ShareView = () => {
                   </Table.Cell>
                   <Table.Cell className="text-ink-soft">{isDir ? "—" : formatBytes(item.size)}</Table.Cell>
                   <Table.Cell className="text-right">
-                    {!isDir && (
-                      <a
-                        href={getShareFileHref(token, item.id, "download")}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label="Download"
-                        title="Download"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-ink-soft transition-colors hover:bg-surface hover:text-ink"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </a>
-                    )}
+                    <a
+                      href={
+                        isDir
+                          ? getShareDirectoryZipHref(token, item.id)
+                          : getShareFileHref(token, item.id, "download")
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={isDir ? "Download folder as zip" : "Download"}
+                      title={isDir ? "Download folder as zip" : "Download"}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-ink-soft transition-colors hover:bg-surface hover:text-ink"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
                   </Table.Cell>
                 </Table.Row>
               );

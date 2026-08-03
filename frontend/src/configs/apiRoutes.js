@@ -57,5 +57,6 @@ export const API_ROUTES = {
   PUBLIC_SHARE: {
     VIEW: (token, dirId) => `s/${token}${dirId ? `?dirId=${dirId}` : ""}`,
     DOWNLOAD: (token, fileId, action) => `s/${token}/file/${fileId}${action ? `?action=${action}` : ""}`,
+    DOWNLOAD_ZIP: (token, dirId) => `s/${token}/download${dirId ? `?dirId=${dirId}` : ""}`,
   },
 };

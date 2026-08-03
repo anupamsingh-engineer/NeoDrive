@@ -6,6 +6,7 @@ import * as fileRepository from "../repositories/file.repository.js";
 import * as directoryRepository from "../repositories/directory.repository.js";
 import * as cloudfrontStorage from "./storage/cloudfront.storage.js";
 import { objectKey } from "./file.storageOps.js";
+import * as directoryService from "./directory.service.js";
 
 const RESOURCE_TYPE_MODEL = { file: "File", directory: "Directory" };
 
@@ -13,6 +14,16 @@ const RESOURCE_TYPE_MODEL = { file: "File", directory: "Directory" };
 // deleted resource) - deliberately doesn't distinguish why, so a visitor probing tokens can't
 // use the response to confirm a token was ever valid.
 const LINK_INVALID_MESSAGE = "This link is invalid or has been revoked";
+
+// The one property a folder share depends on: a visitor may reach the share root itself or any
+// genuine descendant of it, and nothing else - checked by walking real parentDirId links rather
+// than trusting anything client-supplied. Shared by the folder-browsing, file-download, and
+// zip-download paths below rather than each re-implementing it slightly differently.
+async function isWithinShareSubtree(candidateDirId, shareRootId) {
+  if (candidateDirId.toString() === shareRootId) return true;
+  const ancestors = await directoryRepository.findAncestorChain(candidateDirId);
+  return ancestors.some((a) => a.id.toString() === shareRootId);
+}
 
 function toShareResponse(share) {
   return {
@@ -97,12 +108,8 @@ export async function resolvePublicShare(token, { dirId } = {}) {
   const shareRootId = share.resourceId.toString();
   const targetDirId = dirId || shareRootId;
 
-  // Boundary check: a visitor may only navigate to the shared folder itself or one of its
-  // real descendants - never to an arbitrary dirId elsewhere in the owner's drive.
-  if (targetDirId !== shareRootId) {
-    const ancestorsOfTarget = await directoryRepository.findAncestorChain(targetDirId);
-    const withinShare = ancestorsOfTarget.some((a) => a.id.toString() === shareRootId);
-    if (!withinShare) throw ApiError.notFound(LINK_INVALID_MESSAGE);
+  if (!(await isWithinShareSubtree(targetDirId, shareRootId))) {
+    throw ApiError.notFound(LINK_INVALID_MESSAGE);
   }
 
   const targetDir = await directoryRepository.findById(targetDirId);
@@ -140,15 +147,8 @@ export async function getSharedFileDownloadUrl(token, fileId, action) {
     if (share.resourceId.toString() !== fileId) {
       throw ApiError.notFound(LINK_INVALID_MESSAGE);
     }
-  } else {
-    const shareRootId = share.resourceId.toString();
-    const isDirectChild = file.parentDirId.toString() === shareRootId;
-    const isNestedChild =
-      !isDirectChild &&
-      (await directoryRepository.findAncestorChain(file.parentDirId)).some((a) => a.id.toString() === shareRootId);
-    if (!isDirectChild && !isNestedChild) {
-      throw ApiError.notFound(LINK_INVALID_MESSAGE);
-    }
+  } else if (!(await isWithinShareSubtree(file.parentDirId, share.resourceId.toString()))) {
+    throw ApiError.notFound(LINK_INVALID_MESSAGE);
   }
 
   const key = objectKey(file._id, file.extension);
@@ -160,4 +160,27 @@ export async function getSharedFileDownloadUrl(token, fileId, action) {
     // comment for why this can't be fully closed by revoking the share alone.
     expirySeconds: env.cloudfront.shareSignedUrlExpirySeconds,
   });
+}
+
+// Zip download of an entire shared folder, or a subfolder within it (?dirId=). Only valid for a
+// directory share - a file share has nothing to zip, and its single-file download is already
+// GET /s/:token/file/:fileId above.
+export async function getSharedDirectoryZip(token, dirId) {
+  const share = await shareRepository.findByToken(token);
+  if (!share) throw ApiError.notFound(LINK_INVALID_MESSAGE);
+  if (share.resourceType !== "Directory") {
+    throw ApiError.badRequest("This share is a single file - download it directly, not as a zip");
+  }
+
+  const shareRootId = share.resourceId.toString();
+  const targetDirId = dirId || shareRootId;
+
+  if (!(await isWithinShareSubtree(targetDirId, shareRootId))) {
+    throw ApiError.notFound(LINK_INVALID_MESSAGE);
+  }
+
+  const targetDir = await directoryRepository.findById(targetDirId);
+  if (!targetDir) throw ApiError.notFound(LINK_INVALID_MESSAGE);
+
+  return directoryService.buildDirectoryZip(targetDirId, targetDir.name);
 }
