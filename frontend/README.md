@@ -1,13 +1,14 @@
 # NeoDrive Frontend
 
 React 19 + Redux Toolkit/RTK Query client for the NeoDrive API (`../backend`) — file/folder
-storage with cookie-based auth, direct-to-S3 uploads, CloudFront-signed downloads, and Razorpay
-subscriptions.
+storage with cookie-based auth, direct-to-S3 uploads, CloudFront-signed downloads, folder-as-zip
+downloads, read-only link sharing (a Share action + a "Shared Links" management page, plus a
+chromeless public `/s/:token` page for anyone with a link), and Razorpay subscriptions.
 
 **Looking for how a specific part of this app actually works?** See
 **[docs/](./docs/index.md)** — auth/session handling, routing, state management, the file upload
-flow, analytics, styling, environment variables, and build/deploy, all verified against the real
-code (not the generic template this project started from).
+flow, sharing, analytics, styling, environment variables, and build/deploy, all verified against
+the real code (not the generic template this project started from).
 
 **New to this codebase?** Jump to **[Flow Diagrams](#flow-diagrams)** below — rendered inline,
 click any section to expand — or read the prose version with a full config/timeouts cheat-sheet

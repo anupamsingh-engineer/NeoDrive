@@ -23,6 +23,10 @@ functions (no classes, no DI container - imports are the wiring).
   access-token blacklist, RBAC, account lockout, purpose-scoped tokens for password
   reset. See `src/services/auth.service.js` and `src/services/token.service.js`.
 - **Storage**: S3 presigned uploads + CloudFront signed downloads (`src/services/storage/`).
+- **Folder download**: a whole folder (owner's own, or a shared one) as a `.zip` — the one read
+  path where the API server actually streams file bytes itself, rather than redirecting to
+  CloudFront (`directoryService.buildDirectoryZip`, reused by both `/directory/:id/download` and
+  the public `/s/:token/download`).
 - **Sharing**: read-only link sharing for a file or folder (with drill-down); `/share` manages
   links (auth required), `/s` resolves them — the one fully public, unauthenticated data
   endpoint in the API (`src/services/share.service.js`).

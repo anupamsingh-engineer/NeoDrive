@@ -1,9 +1,10 @@
 # NeoDrive
 
 A Google-Drive-style file storage app — React frontend, Node/Express backend, direct-to-S3
-uploads, CloudFront-signed downloads, MongoDB Atlas, Redis, and BullMQ background jobs. This is
-a two-package monorepo: [`backend/`](./backend) and [`frontend/`](./frontend) each have their own
-README, docs, and deployment path — this file is the map between them.
+uploads, CloudFront-signed downloads, read-only link sharing (files or whole folders, public and
+unauthenticated), folder-as-zip downloads, MongoDB Atlas, Redis, and BullMQ background jobs. This
+is a two-package monorepo: [`backend/`](./backend) and [`frontend/`](./frontend) each have their
+own README, docs, and deployment path — this file is the map between them.
 
 ## How it fits together
 
@@ -52,7 +53,10 @@ Two separate S3/CloudFront pairs, on purpose: one hosts the frontend's static bu
 stores and serves user files. Neither the frontend's static assets nor a user's uploaded files
 ever pass through the API server itself — steps 1, 3, and 4 above go straight to S3/CloudFront;
 only step 2 (actual API calls — auth, directory/file metadata, presigned-URL requests) hits the
-backend.
+backend. **One deliberate exception**: downloading a whole folder as a `.zip` (owner or public
+share link) *does* stream file bytes through the API server — building a zip means something has
+to actually read every file's contents to compress them, see
+[backend/docs/directories.md](./backend/docs/directories.md#get-directorydownload-and-get-directoryiddownload).
 
 This is the *runtime* picture. For the full request-by-request detail — auth, directory/file
 operations, signed URLs, caching, queues on the backend; bootstrap, the Redux/RTK Query store,
@@ -64,14 +68,17 @@ routing, upload on the frontend — see each package's own **Flow Diagrams**, li
 
 Node/Express API: dual-JWT cookie auth with refresh rotation and reuse detection, RBAC, a
 directory/file tree with atomic quota reservation, two-phase S3 uploads, CloudFront-signed
-downloads, Redis cache-aside, BullMQ background jobs (email, S3 cleanup, nightly size
-reconciliation), and a full observability stack (pino, Prometheus, OpenTelemetry).
+downloads, folder-as-zip downloads (files streamed from S3, compressed, and piped straight to the
+response), read-only link sharing for a file or a whole folder — including a fully public,
+unauthenticated `/s/*` surface with its own folder-boundary security check — Redis cache-aside,
+BullMQ background jobs (email, S3 cleanup, nightly size reconciliation), and a full observability
+stack (pino, Prometheus, OpenTelemetry).
 
 - **[backend/README.md](./backend/README.md)** — setup, scripts, architecture summary, and the
   backend's own embedded **[Flow Diagrams](./backend/README.md#flow-diagrams)**
 - **[backend/docs/index.md](./backend/docs/index.md)** — one doc per feature: auth, users,
-  directories, files, subscriptions/webhooks, background jobs, caching, security, observability,
-  error handling, plus a flat [API reference](./backend/docs/api-reference.md)
+  directories, files, sharing, subscriptions/webhooks, background jobs, caching, security,
+  observability, error handling, plus a flat [API reference](./backend/docs/api-reference.md)
 - **[backend/docs/flow-diagrams.md](./backend/docs/flow-diagrams.md)** ·
   [Artifact ↗](https://claude.ai/code/artifact/d2fad691-e000-4b18-9463-b81fb05db9f9)
 - Deployment: [EC2 + Docker + nginx + Let's Encrypt](./backend/docs/ec2-deployment.md)
@@ -85,9 +92,9 @@ npm run dev:all         # Redis (Docker) + migrations + API + worker, one comman
 
 ### Backend flow diagrams (preview)
 
-Five of the nine diagrams from [backend/README.md#flow-diagrams](./backend/README.md#flow-diagrams) —
-click to expand. The full set (request lifecycle, login, refresh rotation, directories, caching)
-plus a timeouts cheat-sheet is there.
+A sample from [backend/README.md#flow-diagrams](./backend/README.md#flow-diagrams) (14 diagrams
+total) — click to expand. The full set (request lifecycle, login, refresh rotation, directories,
+caching) plus a timeouts cheat-sheet is there.
 
 <details>
 <summary><strong>Auth — registration (OTP → verification token → account)</strong></summary>
@@ -192,6 +199,76 @@ sequenceDiagram
 </details>
 
 <details>
+<summary><strong>Directory download — streaming a zip of the whole subtree</strong></summary>
+
+The one download path where the API server actually reads file bytes — every other download is
+a CloudFront redirect. Files are fetched from S3 one at a time, not all at once.
+
+```mermaid
+flowchart TD
+    Req(["GET /directory/download or /directory/:id/download"]) --> Own{"caller owns\nthis directory?"}
+    Own -->|no| E1["404"]
+    Own -->|yes| Walk["recursively collect every file\n(name + path) in the subtree"]
+    Walk --> Empty{"zero files\nanywhere?"}
+    Empty -->|yes| E2["400 folder is empty"]
+    Empty -->|no| Limits{"over 2000 files\nor 2 GB total?"}
+    Limits -->|yes| E3["400 too many files / too large"]
+    Limits -->|no| Stream["start zip stream (archiver),\nrespond immediately"]
+    Stream --> Loop["fetch each file from S3 and\nappend to the archive, one at a time"]
+    Loop --> Done["finalize archive\n(browser receives it as it streams)"]
+```
+
+</details>
+
+<details>
+<summary><strong>Sharing — create a link, then an anonymous visitor resolves and downloads it</strong></summary>
+
+Read-only link sharing for a file or a folder (with drill-down). `/share` (create/list/revoke)
+requires the normal session; `/s` (resolve/download, incl. a folder-as-zip download) requires
+nothing at all — the one public data-fetching surface in the API.
+
+```mermaid
+sequenceDiagram
+    participant O as Owner (Browser)
+    participant API as Express API
+    participant Mongo
+    participant V as Visitor (anonymous, no cookies)
+    participant CF as CloudFront
+
+    O->>API: POST /share {resourceType, resourceId} (Cookie: accessToken)
+    API->>API: verify ownership + root-directory guard
+    API->>Mongo: findActiveForResource (idempotent lookup)
+    alt already shared
+        API-->>O: 201 existing {token, url}
+    else new share
+        API->>Mongo: insert Share {token: random 256-bit, resourceType, resourceId, ownerId}
+        API-->>O: 201 {token, url}
+    end
+
+    Note over O,V: owner sends the url to anyone, no account required to open it
+
+    V->>API: GET /s/:token   (no cookies, no CSRF)
+    API->>Mongo: findByToken
+    alt missing or revoked
+        API-->>V: 404 generic "link invalid" message
+    else live
+        API->>Mongo: file metadata, or directory listing +\nboundary-checked ancestors
+        API-->>V: 200 { file } or { directory, files, directories, ancestors }
+    end
+
+    V->>API: GET /s/:token/file/:fileId?action=download
+    Note over V,API: or GET /s/:token/download?dirId= for the whole (sub)folder as a zip
+    API->>API: boundary check — target is the shared file/folder itself,\nor inside its subtree
+    API-->>V: 302 redirect (single file) or streamed zip (folder)
+    V->>CF: GET signed URL (single file only)
+    CF-->>V: file bytes
+```
+
+Revoking takes effect on the very next request — no cache in front of any of these lookups.
+
+</details>
+
+<details>
 <summary><strong>Background queues</strong></summary>
 
 If the worker process isn't running, jobs pile up in Redis and nothing happens — OTP/reset emails
@@ -252,12 +329,15 @@ flowchart LR
 
 React 19 + Redux Toolkit/RTK Query client: cookie-based auth (no client-readable token
 anywhere), a from-scratch UI component library on Tailwind CSS v4, a 3-step signup wizard that
-survives a page reload, direct-to-S3 upload with progress, and a multi-provider analytics module.
+survives a page reload, direct-to-S3 upload with progress, folder-as-zip downloads, read-only
+link sharing (a Share action + a "Shared Links" management page for the owner, plus a chromeless
+public `/s/:token` page anyone with a link can open, logged in or not), and a multi-provider
+analytics module.
 
 - **[frontend/README.md](./frontend/README.md)** — setup, scripts, stack summary, and the
   frontend's own embedded **[Flow Diagrams](./frontend/README.md#flow-diagrams)**
 - **[frontend/docs/index.md](./frontend/docs/index.md)** — one doc per concern: auth, routing,
-  state/API, file management, analytics, styling, environment variables, build & deploy,
+  state/API, file management, sharing, analytics, styling, environment variables, build & deploy,
   contributing
 - **[frontend/docs/flow-diagrams.md](./frontend/docs/flow-diagrams.md)** ·
   [Artifact ↗](https://claude.ai/code/artifact/1482b2f2-a52d-410f-a2eb-e3ff7a039c15)
@@ -272,9 +352,9 @@ npm run dev                   # http://localhost:5173
 
 ### Frontend flow diagrams (preview)
 
-Four of the eleven diagrams from [frontend/README.md#flow-diagrams](./frontend/README.md#flow-diagrams) —
-click to expand. The full set (bootstrap, registration, session-guard logout, directory browsing,
-analytics) plus a config/timeouts cheat-sheet is there.
+A sample from [frontend/README.md#flow-diagrams](./frontend/README.md#flow-diagrams) (12 diagrams
+total) — click to expand. The full set (bootstrap, registration, session-guard logout, directory
+browsing, analytics) plus a config/timeouts cheat-sheet is there.
 
 <details>
 <summary><strong>Redux store & RTK Query architecture</strong></summary>
@@ -366,6 +446,48 @@ sequenceDiagram
     API-->>RTK: 200 { message }
     RTK->>RTK: invalidatesTags [Directory:LIST]
     Note over Drive: getDirectory auto-refetches -<br/>new file appears, no manual reload
+```
+
+</details>
+
+<details>
+<summary><strong>Sharing — owner creates a link, an anonymous visitor opens it</strong></summary>
+
+`ShareModal` calls `createShare` on every open (idempotent server-side, so no client-side "is
+this already shared" tracking needed). `ShareView` is a chromeless public page at `/s/:token`,
+reachable with no session at all — including a "Download as zip" button for a shared folder.
+
+```mermaid
+sequenceDiagram
+    participant O as Owner (DrivePage)
+    participant SM as ShareModal
+    participant RTK as shareApi
+    participant API as Backend
+    participant V as Visitor (ShareView, no session)
+
+    O->>SM: click "Share" on a file/folder
+    SM->>RTK: createShare({resourceType, resourceId})
+    RTK->>API: POST /share (Cookie: accessToken)
+    Note over API: idempotent - same token/url if already shared
+    API-->>SM: { token, url }
+    SM->>SM: render link + Copy + "Turn off link"
+
+    Note over O,V: owner sends the url to anyone
+
+    V->>V: navigate to /s/:token  (chromeless, no AuthGuard gate)
+    V->>RTK: getShareView({token, dirId})
+    RTK->>API: GET /s/:token?dirId=  (no cookies)
+    alt invalid/revoked/out-of-bounds
+        API-->>V: 404
+        V->>V: render "link invalid" empty state
+    else live
+        API-->>V: { file } or { directory, files, directories, ancestors }
+        V->>V: render file card, or a read-only table + breadcrumbs
+    end
+
+    V->>V: click Download / Preview / "Download as zip"
+    V->>API: GET /s/:token/file/:fileId?action=  or  GET /s/:token/download?dirId=
+    API-->>V: 302 -> CloudFront signed URL (file), or a streamed zip (folder)
 ```
 
 </details>
