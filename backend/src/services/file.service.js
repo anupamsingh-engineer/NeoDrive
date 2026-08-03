@@ -125,6 +125,9 @@ export async function uploadInitiate(userId, rootDirId, { parentDirId, name, siz
 
 async function releaseReservation(userId, file, reason) {
   await file.deleteOne();
+  // The S3 object may or may not exist depending on how far the client got (verification_failed
+  // vs size_mismatch) - schedule the delete unconditionally, a delete on a missing key is a no-op.
+  await storageOps.scheduleS3Delete(objectKey(file._id, file.extension));
   const touchedIds = await directoryRepository.incrementSizeUpChain(file.parentDirId, -file.size);
   await invalidateDirectoryListings(userId, file.parentDirId.toString(), ...touchedIds);
   fileUploadFailedTotal.inc({ reason });
