@@ -676,7 +676,12 @@ name even if the file/folder was renamed after sharing.
 
 #### 🔒🛡️ `DELETE /share/:id`
 `:id` is the **share's own id** (from the `data.id` above), not the shared file/folder's id.
-Takes effect immediately — the very next `GET /s/:token` for that link returns `404`, no delay.
+Takes effect immediately for browsing and starting any *new* download — the very next
+`GET /s/:token` returns `404`, no delay. One caveat worth setting expectations for in your UI: a
+download link the visitor **already clicked** before the revoke is a signed CloudFront URL that's
+valid on its own terms for a few minutes (`SHARE_DOWNLOAD_URL_EXPIRY_SECONDS`, default 5) —
+revoking can't reach into an already-issued URL and kill it early. Don't word your "Turn off link"
+confirmation as an instant, absolute guarantee against a download that's already mid-flight.
 
 Response `200`:
 ```json

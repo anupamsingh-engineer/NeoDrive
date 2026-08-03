@@ -109,6 +109,13 @@ const config = {
     // support multi-line quoted values.
     privateKey: requireEnvInProd("CLOUDFRONT_PRIVATE_KEY")?.replace(/\\n/g, "\n"),
     signedUrlExpirySeconds: Number(process.env.CLOUDFRONT_URL_EXPIRY_SECONDS) || 3600, // 1 hour
+    // Deliberately much shorter than the owner default above: a signed URL's validity is baked
+    // into its own signature/expiry and CloudFront never re-checks it against our Share
+    // documents, so revoking a share can't retroactively invalidate a download URL that was
+    // already handed out. Keeping this short is the only lever that narrows that window - it
+    // can't be closed to zero without proxying downloads through this server (defeating the
+    // point of CloudFront) or standing up signed-cookie + Lambda@Edge revocation checks.
+    shareSignedUrlExpirySeconds: Number(process.env.SHARE_DOWNLOAD_URL_EXPIRY_SECONDS) || 300, // 5 min
   },
 
   google: {

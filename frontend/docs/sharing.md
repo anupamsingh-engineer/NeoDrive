@@ -31,7 +31,13 @@ This means the modal never needs its own "check if shared first" round trip or l
 share state — it just always asks, and the backend guarantees the answer is stable.
 
 "Turn off link" calls `revokeShare(share.id)` (the **share document's** id, returned alongside
-the token — not the file/folder's own id) and closes the modal on success.
+the token — not the file/folder's own id) and closes the modal on success. This is near-instant
+for browsing and starting any new download, but **not** for a download link a visitor already
+clicked seconds earlier — that's a signed CloudFront URL valid on its own terms for a few minutes
+independent of the `Share` document, see
+[backend sharing.md](../../backend/docs/sharing.md#revocation-vs-an-already-issued-download-link).
+Don't add UI copy implying "Turn off link" is an absolute, instant guarantee against an in-flight
+download.
 
 **Where the action lives**: `FileList.jsx`/`FileGrid.jsx` gained a `Share2` icon button
 (`lucide-react`) alongside the existing Download/Rename/Delete actions, wired through

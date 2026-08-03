@@ -156,5 +156,8 @@ export async function getSharedFileDownloadUrl(token, fileId, action) {
     key,
     download: action === "download",
     filename: file.name,
+    // Shorter than the owner's own download expiry - see env.js's shareSignedUrlExpirySeconds
+    // comment for why this can't be fully closed by revoking the share alone.
+    expirySeconds: env.cloudfront.shareSignedUrlExpirySeconds,
   });
 }

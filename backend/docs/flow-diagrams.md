@@ -446,6 +446,7 @@ enqueued them already returned success. See [background-jobs.md](./background-jo
 | Share-create rate limit | 20 / min per user | `shareCreateLimiter` |
 | Share-resolve rate limit (public `/s/*`) | 300 / 15m per IP | `shareResolveLimiter` |
 | Share link lifetime | none — revoke-only, no expiry (v1) | [sharing.md](./sharing.md) |
+| Share download signed URL | 5 min (shorter than the owner default above on purpose) | `shareSignedUrlExpirySeconds` / `SHARE_DOWNLOAD_URL_EXPIRY_SECONDS` — see [sharing.md](./sharing.md#revocation-vs-an-already-issued-download-link) for why revoke can't retroactively kill an already-issued one |
 | Nightly size reconciliation | 02:00 daily | cron `0 2 * * *` |
 
 See [security.md](./security.md) for the reasoning behind each auth-related number.

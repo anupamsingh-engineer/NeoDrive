@@ -112,6 +112,11 @@ it wouldn't add meaningful protection here). Folder shares enforce a containment
 anything client-supplied — see
 [sharing.md](./sharing.md#the-security-boundary-check). Every failure mode (missing token, revoked,
 outside the shared subtree) returns the same generic `404`, deliberately indistinguishable.
+Revoking a share is instant for browsing/starting a new download, but **not** for a download URL
+already handed out before the revoke — CloudFront validates that URL's own signature/expiry
+independently of the `Share` document, so it stays valid until it naturally expires. Share
+downloads get a much shorter signed-URL expiry than owner downloads specifically to narrow this
+window — see [sharing.md](./sharing.md#revocation-vs-an-already-issued-download-link).
 
 ## Session limits
 

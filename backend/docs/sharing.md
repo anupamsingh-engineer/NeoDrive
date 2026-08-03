@@ -279,6 +279,30 @@ another Mongo delete):
   delete itself already does, so this is one extra bulk-delete query, not a second recursive
   walk.
 
+## Revocation vs. an already-issued download link
+
+Revoking a share (`DELETE /share/:id`) removes the `Share` document, and `GET /s/:token` /
+`GET /s/:token/file/:fileId` both check that document live on every call — so browsing and
+*starting* a new download are cut off immediately (see [Caching](#caching) below).
+
+**But a download URL that was already handed out is a different story.** `GET
+/s/:token/file/:fileId` doesn't stream bytes itself — it 302-redirects to a signed CloudFront URL,
+and from that point on the browser talks to CloudFront directly. CloudFront validates the
+signature and the `Expires` timestamp baked into the URL; it has no notion of a `Share` document
+and never calls back into this API. Revoking the share does **not** retroactively invalidate a
+signed URL that was already generated — anyone who already loaded the download link keeps a
+working direct link until it naturally expires.
+
+This can't be closed to zero without either proxying every download byte through this API server
+(defeating the entire reason CloudFront/S3 exist in this architecture) or standing up CloudFront
+signed cookies + a live revocation-list check in Lambda@Edge (real infrastructure, disproportionate
+for this app's scale). What's actually done instead: share-originated downloads get a
+**much shorter** signed URL expiry than the owner's own downloads —
+`env.cloudfront.shareSignedUrlExpirySeconds` (`SHARE_DOWNLOAD_URL_EXPIRY_SECONDS`, default **5
+minutes**) vs. the owner default of `signedUrlExpirySeconds` (`CLOUDFRONT_URL_EXPIRY_SECONDS`,
+default 1 hour) — see `getSharedFileDownloadUrl` in `share.service.js`. Revoking a share still
+closes the window within minutes, just not instantly for a download already in flight.
+
 ## Caching
 
 Deliberately **none**. `directoryService.getDirectory` (the owner-facing folder listing) is
