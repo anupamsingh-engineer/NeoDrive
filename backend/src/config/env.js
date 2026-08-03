@@ -63,6 +63,14 @@ const config = {
     ),
   },
 
+  // Optional. Set this to the parent domain shared by the frontend and this API (e.g.
+  // "storage.anupamsingh.xyz" for a frontend at storage.anupamsingh.xyz and this API at
+  // api.storage.anupamsingh.xyz) so the CSRF cookie - the one cookie the frontend must read via
+  // document.cookie, see utils/cookies.js - is visible across both hosts instead of being
+  // host-only to just this API's origin. Leave unset for same-host setups (local dev), where the
+  // browser already shares cookies across ports on the same hostname without this.
+  cookieDomain: process.env.COOKIE_DOMAIN || undefined,
+
   // Reuses CLIENT_URL_1 (already the CORS-trusted primary frontend origin) rather than a
   // separate env var - keeps the link embedded in emails (password reset) always pointing at
   // the same origin the browser is actually allowed to call the API from, with one value to

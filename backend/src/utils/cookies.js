@@ -16,7 +16,12 @@ export function refreshTokenCookieOptions() {
 }
 
 export function csrfTokenCookieOptions() {
-  return { ...baseCookieOptions, httpOnly: false, maxAge: env.jwt.refreshExpiryMs };
+  return {
+    ...baseCookieOptions,
+    httpOnly: false,
+    maxAge: env.jwt.refreshExpiryMs,
+    domain: env.cookieDomain,
+  };
 }
 
 export function setAuthCookies(res, { accessToken, refreshToken }) {
