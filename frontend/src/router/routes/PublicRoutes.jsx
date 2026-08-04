@@ -4,13 +4,14 @@ import { Route, Routes } from "react-router-dom";
 import PublicLayout from "../../components/layout/public/PublicLayout";
 import PageNotFound from "../../components/common/PageNotFound";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
+import { lazyWithRetry } from "../../utils/lazyWithRetry";
 
-const Login = React.lazy(() => import("../../pages/public/Login"));
-const Register = React.lazy(() => import("../../pages/public/Register"));
-const ForgotPassword = React.lazy(() => import("../../pages/public/ForgotPassword"));
-const ResetPassword = React.lazy(() => import("../../pages/public/ResetPassword"));
-const Home = React.lazy(() => import("../../pages/public/Home"));
-const ShareView = React.lazy(() => import("../../pages/public/ShareView"));
+const Login = lazyWithRetry(() => import("../../pages/public/Login"), "public-login");
+const Register = lazyWithRetry(() => import("../../pages/public/Register"), "public-register");
+const ForgotPassword = lazyWithRetry(() => import("../../pages/public/ForgotPassword"), "public-forgot-password");
+const ResetPassword = lazyWithRetry(() => import("../../pages/public/ResetPassword"), "public-reset-password");
+const Home = lazyWithRetry(() => import("../../pages/public/Home"), "public-home");
+const ShareView = lazyWithRetry(() => import("../../pages/public/ShareView"), "public-share-view");
 
 const PublicPageRouter = () => {
   return (

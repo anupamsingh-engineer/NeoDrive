@@ -7,12 +7,13 @@ import AppLayout from "../../components/layout/app/AppLayout";
 import PageNotFound from "../../components/common/PageNotFound";
 import FullScreenLoader from "../../components/ui/FullScreenLoader";
 import { selectCurrentUser } from "../../store/slices/auth-slice";
+import { lazyWithRetry } from "../../utils/lazyWithRetry";
 
-const Drive = React.lazy(() => import("../../pages/app/drive"));
-const Profile = React.lazy(() => import("../../pages/app/profile"));
-const SharedLinks = React.lazy(() => import("../../pages/app/shared"));
-const Subscriptions = React.lazy(() => import("../../pages/app/subscriptions"));
-const UsersList = React.lazy(() => import("../../pages/app/users"));
+const Drive = lazyWithRetry(() => import("../../pages/app/drive"), "app-drive");
+const Profile = lazyWithRetry(() => import("../../pages/app/profile"), "app-profile");
+const SharedLinks = lazyWithRetry(() => import("../../pages/app/shared"), "app-shared");
+const Subscriptions = lazyWithRetry(() => import("../../pages/app/subscriptions"), "app-subscriptions");
+const UsersList = lazyWithRetry(() => import("../../pages/app/users"), "app-users");
 
 // Admin and Manager can both view the Users screen; only Admin can delete (gated inside the page).
 const RequireRole = ({ roles, children }) => {
