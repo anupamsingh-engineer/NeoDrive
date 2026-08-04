@@ -4,7 +4,7 @@ import { COOKIE_NAMES } from "../config/constants.js";
 const baseCookieOptions = {
   httpOnly: true,
   secure: env.isProduction,
-  sameSite: env.isProduction ? "none" : "lax",
+  sameSite: "lax",
 };
 
 export function accessTokenCookieOptions() {

@@ -143,12 +143,16 @@ applied here too.
 | `httpOnly` | yes | yes | **no** |
 | `path` | `/` | `/auth/refresh` | `/` |
 | `secure` | prod only | prod only | prod only |
-| `sameSite` | `none` (prod) / `lax` (dev) | same | same |
+| `sameSite` | `lax` | same | same |
 | `maxAge` | 15 min (fixed) | `REFRESH_TOKEN_EXPIRY` | `REFRESH_TOKEN_EXPIRY` |
 
-`sameSite: "none"` in production assumes the frontend and API may live on different origins/
-subdomains — that combination requires `secure: true` as well (browsers reject `SameSite=None`
-without `Secure`), which is why both flip together on `env.isProduction`.
+`sameSite: "lax"` works even though the frontend (`neodrive.anupamsingh.xyz`) and API
+(`api.storage.anupamsingh.xyz`) sit on different subdomains, because both share the same
+registrable domain (`anupamsingh.xyz`) — browsers classify cross-subdomain requests within one
+registrable domain as same-site, not cross-site, so `Lax` still sends the cookie. `None` would
+only be needed if the frontend and API moved to genuinely different registrable domains. Cross-host
+visibility of the CSRF cookie (the one the frontend reads via `document.cookie`) instead comes from
+the `Domain` attribute, set via `COOKIE_DOMAIN=anupamsingh.xyz` — the shared apex of both hosts.
 
 ## Other request-level hardening (`app.js`)
 

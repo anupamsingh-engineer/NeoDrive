@@ -64,7 +64,7 @@ const config = {
   },
 
   // Optional. Set this to the parent domain shared by the frontend and this API (e.g.
-  // "storage.anupamsingh.xyz" for a frontend at storage.anupamsingh.xyz and this API at
+  // "anupamsingh.xyz" for a frontend at neodrive.anupamsingh.xyz and this API at
   // api.storage.anupamsingh.xyz) so the CSRF cookie - the one cookie the frontend must read via
   // document.cookie, see utils/cookies.js - is visible across both hosts instead of being
   // host-only to just this API's origin. Leave unset for same-host setups (local dev), where the
