@@ -10,8 +10,9 @@ const dev = {
 
 const prod = {
   APP_NAME: "NeoDrive",
-  API_ENDPOINT_URL:
-    import.meta.env.VITE_API_BASE_URL || "https://api.example.com/",
+  // API_ENDPOINT_URL:
+  //   import.meta.env.VITE_API_BASE_URL || "https://api.example.com/",
+  API_ENDPOINT_URL: "https://api.storage.anupamsingh.xyz/",
   FRONTEND_DOMAIN: "example.com",
 };
 
