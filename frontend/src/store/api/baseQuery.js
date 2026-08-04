@@ -130,11 +130,19 @@ export const baseQueryWithReauth = async (args, api, extraOptions) => {
       await mutex.waitForUnlock().catch(() => {});
       result = await baseQuery(args, api, extraOptions);
     }
-  } else if (result?.error?.status === 409) {
+  } else if (result?.error?.status === 409 && api.endpoint === "refresh") {
     // Benign refresh race (two near-simultaneous refresh calls) — retry once, silently.
     // Re-run through this same function so the retry's own result is fully re-evaluated
     // (including a second 401/409 if that happens) rather than relabeling it with the
     // original 409's status/message.
+    //
+    // Scoped to the refresh endpoint itself, same as the 401 branch above: a 409 from any
+    // other endpoint (e.g. register's or loginWithGoogle's "<field> already exists" from a
+    // genuine Mongo duplicate-key conflict — see backend/src/middlewares/errorHandler.middleware.js)
+    // is not a transient race, it's a permanent conflict. Retrying it blindly got the exact same
+    // 409 back every time and recursed forever, hammering the endpoint — that's the register
+    // infinite-loop bug. Let it fall through to the generic error branch below instead, which
+    // surfaces the backend's message as a toast and returns.
     return baseQueryWithReauth(args, api, extraOptions);
   } else if (result?.error) {
     const { status } = result.error;

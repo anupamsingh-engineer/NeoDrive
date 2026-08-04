@@ -202,9 +202,13 @@ never attach it, matching the backend's own exemption of safe methods from CSRF 
      records `lastRefreshFailureAt` (arming the circuit breaker above) and calls `forceLogout()`.
 4. If the mutex is already held (another request got there first), just waits for it to release
    and retries — it doesn't fire a second refresh.
-5. **On a `409`** on the *original* request (not the refresh call — same benign race, just
-   surfaced one level up): retries the whole `baseQueryWithReauth` call once, so a second
-   401/409 on the retry is still fully re-evaluated rather than blindly relabeled.
+5. **On a `409`, only if the *original* request was itself `POST /auth/refresh`** (e.g. a direct
+   `useRefreshMutation()` call, not the internal 401-triggered one two bullets up — that one calls
+   raw `baseQuery` and already treats its own `409` as success inline): retries the whole
+   `baseQueryWithReauth` call once, so a second 401/409 on the retry is still fully re-evaluated
+   rather than blindly relabeled. This is the backend's *"another request already refreshed
+   moments ago, this isn't reuse"* race, from two near-simultaneous refreshes — genuinely
+   transient, safe to retry blind.
 6. Other error statuses: logged, and surfaced as a toast for anything that isn't handled inline
    by the calling component (401/403/404/507 are left for the component; 429/500 get a generic
    toast; everything else gets the backend's own `message`).
@@ -215,6 +219,21 @@ UI bug that fires several requests in quick succession — see the logout button
 each independently race to refresh, occasionally have one of them get a benign `409` misread as a
 hard failure, force-logout a session that was actually fine, and repeat — a visible storm of
 `refresh`/`login`/`me` calls in the network tab, not a single clean retry.
+
+**The `409` retry used to be unscoped** (any endpoint, no endpoint check — unlike the 401 branch's
+`api.endpoint !== "refresh"` guard) and had no retry cap; the "retry once" was only a comment, not
+enforced. `POST /auth/register` and `POST /auth/google` (`loginWithGoogle`, when it races itself —
+see below) can both return a real `409 "<field> already exists"` from a Mongo unique-index
+violation (`errorHandler.middleware.js`'s `err.code === 11000` handler) when the email is a
+genuine duplicate. That's a permanent conflict, not a transient race — retrying resends the exact
+same payload and gets the exact same `409` back, forever. In practice: submitting register with an
+already-registered email recursed into `baseQueryWithReauth` endlessly, visibly hammering
+`POST /auth/register` in the network tab. `loginWithGoogle` has the same latent bug on a narrower
+trigger — two near-simultaneous Google sign-ins for a brand-new email (double-click, two tabs) can
+both read "no existing user" before either writes, both attempt `createUserWithRootDirectory`, and
+the loser hits the same unique-index `409`. The fix is the endpoint check in bullet 5 above: only a
+`409` from `refresh` itself is treated as retriable; everything else falls through to bullet 6 and
+surfaces as a toast instead of looping.
 
 ## Logout
 
