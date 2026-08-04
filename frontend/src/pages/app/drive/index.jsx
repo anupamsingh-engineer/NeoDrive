@@ -151,7 +151,7 @@ const DrivePage = () => {
 
       <UploadDropzone onFiles={uploadFiles}>
         {rows.length === 0 ? (
-          <EmptyState icon={FolderOpen} title="This folder is empty" description="Upload a file or create a folder to get started try." />
+          <EmptyState icon={FolderOpen} title="This folder is empty" description="Upload a file or create a folder to get started." />
         ) : (
           <LayoutGroup>
             <AnimatePresence mode="wait" initial={false}>
