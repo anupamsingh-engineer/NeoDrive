@@ -32,4 +32,5 @@ export function setAuthCookies(res, { accessToken, refreshToken }) {
 export function clearAuthCookies(res) {
   res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN, baseCookieOptions);
   res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, { ...baseCookieOptions, path: "/auth/refresh" });
+  res.clearCookie(COOKIE_NAMES.CSRF_TOKEN, csrfTokenCookieOptions());
 }
