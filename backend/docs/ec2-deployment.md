@@ -317,6 +317,34 @@ docker compose ps
 
 ---
 
+## 10. (Optional) Expose Grafana via metric.neodrive.anupamsingh.xyz
+
+Only relevant if you resized to run the full observability stack (see "Instance sizing" above).
+By default Grafana is loopback-only (`127.0.0.1:3001`, see `docker-compose.yml`) — reachable
+locally via `docker compose up -d prometheus grafana jaeger`, or remotely via a manual
+`ssh -L 3001:localhost:3001` tunnel, without any of this section. Do this instead if you want a
+real URL you can just open in a browser.
+
+1. **Set a real admin password** — `GRAFANA_ADMIN_PASSWORD` in `.env` (see `.env.example`), then
+   recreate the container so it picks it up: `docker compose up -d grafana`. Anonymous access is
+   already off (see `docker-compose.yml`), so this password is the only way in once this is
+   public — don't skip it or leave it as the compose fallback (`admin`).
+2. **DNS** — same as step 2 above, but `Name: metric.neodrive` instead of `api.storage`, pointing
+   at the same EC2 IP.
+3. **nginx** — same as step 7 above, using
+   [`backend/deploy/nginx/metric.neodrive.anupamsingh.xyz.conf`](../deploy/nginx/metric.neodrive.anupamsingh.xyz.conf)
+   in place of the API's config file.
+4. **TLS** — same as step 8 above: `sudo certbot --nginx -d metric.neodrive.anupamsingh.xyz`.
+
+Verify: `https://metric.neodrive.anupamsingh.xyz` should show Grafana's login page (not a
+dashboard directly — anonymous access is off, log in as `admin` with `GRAFANA_ADMIN_PASSWORD`).
+
+If you later want to proxy Prometheus (`:9090`) or Jaeger (`:16686`) the same way, be aware
+neither has any built-in login of its own — put nginx `auth_basic` in front of those specifically,
+since there's no Grafana-style admin password to fall back on.
+
+---
+
 ## Redeploying manually (without pushing)
 
 ```bash

@@ -79,14 +79,15 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    # Loopback-only - view remotely via `ssh -L 3001:localhost:3001`. Anonymous Viewer access is
-    # enabled below for local-dev convenience, which is exactly why this shouldn't be reachable
-    # from the public internet on a real box.
+    # Loopback-only either way (view locally via this port directly, or remotely via nginx ->
+    # 127.0.0.1:3001 - see deploy/nginx/metric.neodrive.anupamsingh.xyz.conf - or a manual
+    # `ssh -L 3001:localhost:3001` tunnel). Anonymous access is off; log in with `admin` and
+    # GRAFANA_ADMIN_PASSWORD (falls back to Grafana's own default if that's unset, which you
+    # should not leave unset anywhere reachable outside localhost).
     ports:
       - "127.0.0.1:3001:3000"
     environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
