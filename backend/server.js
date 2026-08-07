@@ -1,4 +1,4 @@
-import "./src/config/dns.cjs";
+// import "./src/config/dns.cjs";
 import app from "./app.js";
 import env from "./src/config/env.js";
 import logger from "./src/config/logger.js";

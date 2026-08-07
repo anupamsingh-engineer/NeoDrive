@@ -19,11 +19,7 @@ const FEATURES = [
     title: "Instant previews",
     description: "Open images and videos right in the browser without downloading a thing.",
   },
-  {
-    icon: HardDrive,
-    title: "Storage that scales",
-    description: "Start free and upgrade to 2, 5, or 10 TB tiers as your library grows.",
-  },
+
   {
     icon: ShieldCheck,
     title: "Secure by design",
@@ -33,6 +29,22 @@ const FEATURES = [
     icon: Globe,
     title: "Access from anywhere",
     description: "Your drive works the same on any modern browser, on any device.",
+  },
+  {
+    icon: UploadCloud,
+    title: "Share with anyone",
+    description: "Easily share files and folders with colleagues, friends, or family.",
+  },
+  {
+    icon: DownloadCloud,
+    title: "Download anytime",
+    description: "Access your files from anywhere, on any device.",
+  },
+
+    {
+    icon: HardDrive,
+    title: "Storage that scales",
+    description: "Start free and upgrade to 2, 5, or 10 TB tiers as your library grows.",
   },
 ];
 

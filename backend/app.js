@@ -47,7 +47,7 @@ app.use("/webhooks", webhookRoutes);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(mongoSanitize());
-app.use(hpp()); // prevent from http parameter polloution -> /health?role=user&role=admin -> req.query.role = [user,admin] but with hpp only last or fast will be passed based on conf like user or admin 
+app.use(hpp()); // prevent from http parameter pollution -> /health?role=user&role=admin -> req.query.role = [user,admin] but with hpp only last or fast will be passed based on conf like user or admin 
 app.use(globalLimiter);
 
 app.get("/", (req, res) => {
