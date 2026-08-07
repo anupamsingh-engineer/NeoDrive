@@ -46,10 +46,13 @@ plus these custom ones (`src/config/metrics.js`):
 | `cache_hit_total` / `cache_miss_total` | Counter | `cache` | Redis cache-aside effectiveness (see [caching.md](./caching.md)) |
 | `storage_bytes_used` | Gauge | `plan` | Set by the nightly size-reconcile job |
 
-Access is optionally gated: if `METRICS_TOKEN` is set, the endpoint requires a matching
-`x-metrics-token` header (`403` otherwise); if unset, the endpoint is open. Prometheus's own
-scrape config (`docker/prometheus/prometheus.yml`) would need that header configured if you turn
-this on.
+Access is optionally gated: if `METRICS_TOKEN` is set, the endpoint requires either a matching
+`x-metrics-token` header or an `Authorization: Bearer <token>` header (`403` otherwise); if unset,
+the endpoint is open. Prometheus scrape configs can't send arbitrary custom headers, only the
+standard `Authorization` one, so the bundled Prometheus container authenticates via
+`authorization.credentials_file` in `docker/prometheus/prometheus.yml`, reading the token from
+`docker/prometheus/metrics_token` (gitignored - copy `metrics_token.example` and paste in the same
+value as `METRICS_TOKEN`). Leave it empty if `METRICS_TOKEN` is unset.
 
 ## Tracing (OpenTelemetry)
 

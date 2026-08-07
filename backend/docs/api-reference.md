@@ -16,7 +16,7 @@ plus that role.
 |---|---|---|---|---|
 | GET | `/healthz` | – | global | [observability.md](./observability.md) |
 | GET | `/readyz` | – | global | [observability.md](./observability.md) |
-| GET | `/metrics` | `x-metrics-token` header if `METRICS_TOKEN` set | global | [observability.md](./observability.md) |
+| GET | `/metrics` | `x-metrics-token` header or `Authorization: Bearer` if `METRICS_TOKEN` set | global | [observability.md](./observability.md) |
 
 ## Auth (`/auth`)
 

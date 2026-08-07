@@ -69,6 +69,9 @@ services:
       - "9090:9090"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Copy metrics_token.example -> metrics_token (gitignored) and, if METRICS_TOKEN is set
+      # in .env, put the same value in there so Prometheus can authenticate its scrapes.
+      - ./docker/prometheus/metrics_token:/etc/prometheus/secrets/metrics_token:ro
     depends_on:
       - app
 

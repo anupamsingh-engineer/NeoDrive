@@ -9,6 +9,11 @@ const router = express.Router();
 function requireMetricsToken(req, res, next) {
   if (!env.observability.metricsToken) return next();
   if (req.headers["x-metrics-token"] === env.observability.metricsToken) return next();
+  // Prometheus scrape_configs can't send arbitrary custom headers, only the standard
+  // Authorization header (via `authorization.credentials_file` in prometheus.yml) - accept
+  // that too so the bundled Prometheus container can actually scrape a token-gated endpoint.
+  const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+  if (bearer === env.observability.metricsToken) return next();
   next(ApiError.forbidden("Not authorized to access metrics"));
 }
 

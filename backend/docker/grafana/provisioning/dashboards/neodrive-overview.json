@@ -8,16 +8,20 @@
       "id": 1,
       "title": "Request rate (by status code)",
       "type": "timeseries",
+      "description": "Requests PER MINUTE, grouped by HTTP status code (already converted - no need to multiply by 60 yourself).\n\n200 / 201 / 204 = success. 3xx = redirect. 4xx = client error (bad input, bad/missing auth) - a brief spike is usually just you testing. 5xx = server error - investigate immediately if this ever appears.\n\nWorry when a 4xx/5xx line climbs and stays up, not when it briefly blips.\n\nHOW TO READ: hover any point on a line - the tooltip shows the exact value, e.g. '200: 5.33' means 5.33 successful requests/min around that moment. A ZIGZAG shape (up-down-up-down) on an otherwise steady line is normal - it's an artifact of averaging a small number of requests over a rolling 1-minute window, not real instability. A line that SLOPES DOWN TO ZERO AND STAYS THERE (rather than zigzagging) usually just means you stopped generating that kind of request - check the other panels for the same flat pattern at the same timestamp to confirm.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "axisLabel": "requests / min" } } },
       "targets": [
-        { "expr": "sum(rate(http_requests_total[1m])) by (status_code)", "legendFormat": "{{status_code}}" }
+        { "expr": "sum(rate(http_requests_total[1m])) by (status_code) * 60", "legendFormat": "{{status_code}}" }
       ]
     },
     {
       "id": 2,
       "title": "p95 request duration",
       "type": "timeseries",
+      "description": "For each route, the response time that 95% of requests finish faster than. Shown directly in seconds (Grafana auto-switches to ms for small values) - already the real unit, nothing to convert.\n\nA line that SPIKES then recovers = one slow request, usually not urgent. A line that's flat and elevated the whole time = that route is structurally slow (e.g. file upload routes doing real S3 work are expected to sit higher than /healthz). Only alarming if a normally-fast route (auth, metrics, healthz) goes flat-and-high.\n\nHOW TO READ: hover a point, e.g. '/healthz: 200ms' means the slowest 5% of /healthz calls in that window still finished within 200ms (the other 95% were faster). A FLAT line means duration is steady and consistent - fine even if the number itself is high, AS LONG AS it matches what that route should cost. A line that simply ENDS/DISAPPEARS partway across the graph (instead of dropping to 0s) means no requests hit that route after that point - there's nothing to compute a percentile from, so Grafana just stops drawing it, it's not the same as duration becoming instant.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))",
@@ -29,34 +33,42 @@
       "id": 3,
       "title": "Auth login attempts",
       "type": "timeseries",
+      "description": "Login attempts PER MINUTE, split by outcome (already converted - no need to multiply by 60 yourself).\n\nsuccess = normal logins. failure = wrong password etc. locked = account auto-locked after repeated failures.\n\nA small blip in 'failure' = someone mistyped a password. A SUSTAINED climb in 'failure' across many attempts = possible brute-force attempt or a bug that broke login.\n\nHOW TO READ: hover a point, e.g. 'password/success: 1.5' means about 1-2 successful logins happened per minute around that time. A line that GRADUALLY DECAYS to 0 (rather than dropping instantly) is normal - it's using a 5-minute rolling average, so after you stop logging in, old attempts take a few minutes to 'age out' of the window before the line settles at 0.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "axisLabel": "attempts / min" } } },
       "targets": [
-        { "expr": "sum(rate(auth_login_attempts_total[5m])) by (method, result)", "legendFormat": "{{method}}/{{result}}" }
+        { "expr": "sum(rate(auth_login_attempts_total[5m])) by (method, result) * 60", "legendFormat": "{{method}}/{{result}}" }
       ]
     },
     {
       "id": 4,
       "title": "File uploads",
       "type": "timeseries",
+      "description": "Upload funnel PER MINUTE (already converted - no need to multiply by 60 yourself).\n\ninitiated = upload started. completed = finished successfully. failed/{reason} = errored out, grouped by why.\n\nHealthy: initiated and completed track closely together. Red flag: initiated is consistently higher than completed with no matching rise in failed - that means uploads are dying silently somewhere between start and finish.\n\nHOW TO READ: hover a point, e.g. 'initiated: 0.2, completed: 0.2' at the same timestamp means every upload that started also finished - the two lines OVERLAPPING is the good outcome, don't expect to see them as visually separate unless something's actually failing. If you ever see 'initiated' pull ahead of 'completed' and stay ahead, that gap is your silent-failure signal.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "axisLabel": "uploads / min" } } },
       "targets": [
-        { "expr": "rate(file_upload_initiated_total[5m])", "legendFormat": "initiated" },
-        { "expr": "rate(file_upload_completed_total[5m])", "legendFormat": "completed" },
-        { "expr": "sum(rate(file_upload_failed_total[5m])) by (reason)", "legendFormat": "failed/{{reason}}" }
+        { "expr": "rate(file_upload_initiated_total[5m]) * 60", "legendFormat": "initiated" },
+        { "expr": "rate(file_upload_completed_total[5m]) * 60", "legendFormat": "completed" },
+        { "expr": "sum(rate(file_upload_failed_total[5m])) by (reason) * 60", "legendFormat": "failed/{{reason}}" }
       ]
     },
     {
       "id": 5,
       "title": "Queue depth",
       "type": "timeseries",
+      "description": "Number of jobs CURRENTLY WAITING in each background queue right now - this is a live count, not a rate, so there's nothing to convert.\n\nFlat and low = healthy, jobs are draining as fast as they arrive. Climbing and not coming back down = the worker is stuck, crashed, or overloaded - check `docker compose logs worker`.\n\nException: 'directory-size-reconcile' is a nightly cron job, so a steady depth of 1 there just means \"waiting for its 2am run\" - that's normal, not stuck.\n\nHOW TO READ: hover a point, e.g. 'directory-size-reconcile: 1' means exactly 1 job is sitting in that queue at that instant - not '1 per minute', just a literal count. 'email: 0' and 's3-cleanup: 0' flat at the bottom means those queues are empty (nothing waiting) - that's the healthy default when no emails/deletes are actively being processed.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "axisLabel": "jobs waiting" } } },
       "targets": [{ "expr": "queue_depth", "legendFormat": "{{queue}}" }]
     },
     {
       "id": 6,
       "title": "Cache hit ratio",
       "type": "timeseries",
+      "description": "Percentage of cache reads that were hits vs misses - already shown as a percentage, nothing to convert.\n\nHigher is better (cache is doing its job, fewer expensive DB/S3 lookups). Shows 'No data' until at least one cache read has happened since the containers last restarted - that's expected, not broken.\n\nHOW TO READ: hover a point, e.g. 'user_profile: 100%' means every read of the user_profile cache in that window was a hit (0 misses) - as good as it gets. If this drops toward 0%, either the cache just went cold (e.g. right after a restart) or something's writing cache keys that never get read back (wasted cache).",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
       "targets": [
         {
           "expr": "sum(rate(cache_hit_total[5m])) by (cache) / (sum(rate(cache_hit_total[5m])) by (cache) + sum(rate(cache_miss_total[5m])) by (cache))",

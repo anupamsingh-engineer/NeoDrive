@@ -4,5 +4,9 @@ global:
 scrape_configs:
   - job_name: neodrive-backend
     metrics_path: /metrics
+    # Only takes effect if the file exists and is non-empty - see
+    # docker/prometheus/metrics_token.example. Harmless no-op when METRICS_TOKEN is unset.
+    authorization:
+      credentials_file: /etc/prometheus/secrets/metrics_token
     static_configs:
       - targets: ["app:4000"]

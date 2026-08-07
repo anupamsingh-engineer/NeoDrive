@@ -3,7 +3,8 @@ const NODE_ENV = process.env.NODE_ENV;
 
 const dev = {
   APP_NAME: "NeoDrive",
-  API_ENDPOINT_URL: "https://api.storage.anupamsingh.xyz/",
+  // API_ENDPOINT_URL: "https://api.storage.anupamsingh.xyz/",
+  API_ENDPOINT_URL:"http://localhost:4000/",
   // API_ENDPOINT_URL: import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/",
   FRONTEND_DOMAIN: "localhost",
 };
