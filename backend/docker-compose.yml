@@ -65,8 +65,10 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    # Loopback-only like `app` above - view remotely via `ssh -L 9090:localhost:9090`, never
+    # expose this port directly on a public box (no auth in front of Prometheus itself).
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Copy metrics_token.example -> metrics_token (gitignored) and, if METRICS_TOKEN is set
@@ -77,8 +79,11 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    # Loopback-only - view remotely via `ssh -L 3001:localhost:3001`. Anonymous Viewer access is
+    # enabled below for local-dev convenience, which is exactly why this shouldn't be reachable
+    # from the public internet on a real box.
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
@@ -92,9 +97,12 @@ services:
     image: jaegertracing/all-in-one:latest
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
+    # Loopback-only for the UI - view remotely via `ssh -L 16686:localhost:16686`. The OTLP port
+    # doesn't need a host mapping at all in production: app/worker reach it over the internal
+    # Compose network as `http://jaeger:4318`, never through the host.
     ports:
-      - "16686:16686" # UI
-      - "4318:4318" # OTLP/http
+      - "127.0.0.1:16686:16686" # UI
+      - "127.0.0.1:4318:4318" # OTLP/http
 
 volumes:
   # Explicit names (matching what the "backend"-named project originally created, before it was
