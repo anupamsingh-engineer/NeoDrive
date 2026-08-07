@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { UploadCloud, FolderTree, Eye, HardDrive, ShieldCheck, Globe } from "lucide-react";
+import { UploadCloud, FolderTree, Eye, HardDrive, ShieldCheck, Globe,DownloadCloud } from "lucide-react";
 import { Card } from "../../../../components/ui";
 import { fadeUp } from "../../../../motion";
 
@@ -51,11 +51,11 @@ const FEATURES = [
 const Features = () => (
   <section className="mx-auto w-full max-w-page px-6 py-20">
     <div className="mx-auto mb-12 max-w-xl text-center">
-      <h2 className="text-3xl font-semibold text-ink">Everything you need to manage your files</h2>
+      <h2 className="text-2xl font-semibold text-ink">Everything you need to manage your files</h2>
       <p className="mt-3 text-ink-soft">A drive built for speed, structure, and peace of mind.</p>
     </div>
 
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {FEATURES.map((feature, index) => (
         <motion.div
           key={feature.title}
