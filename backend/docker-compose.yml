@@ -76,6 +76,7 @@ services:
       - ./docker/prometheus/metrics_token:/etc/prometheus/secrets/metrics_token:ro
     depends_on:
       - app
+    restart: unless-stopped
 
   grafana:
     image: grafana/grafana:latest
@@ -93,6 +94,7 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    restart: unless-stopped
 
   jaeger:
     image: jaegertracing/all-in-one:latest
@@ -104,6 +106,7 @@ services:
     ports:
       - "127.0.0.1:16686:16686" # UI
       - "127.0.0.1:4318:4318" # OTLP/http
+    restart: unless-stopped
 
 volumes:
   # Explicit names (matching what the "backend"-named project originally created, before it was
