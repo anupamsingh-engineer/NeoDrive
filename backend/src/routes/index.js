@@ -8,6 +8,7 @@ import fileRoutes from "./file.routes.js";
 import subscriptionRoutes from "./subscription.routes.js";
 import shareRoutes from "./share.routes.js";
 import publicShareRoutes from "./publicShare.routes.js";
+import debugRoutes from "./debug.routes.js"; // TEMPORARY - see debug.routes.js
 import { requireAuth } from "../middlewares/auth.middleware.js";
 import { verifyCsrf } from "../middlewares/csrf.middleware.js";
 
@@ -17,6 +18,7 @@ const router = express.Router();
 
 router.use(healthRoutes);
 router.use(metricsRoutes);
+router.use(debugRoutes); // TEMPORARY - see debug.routes.js
 
 router.use("/auth", authRoutes);
 router.use(userRoutes);
