@@ -51,7 +51,7 @@ app.use(hpp()); // prevent from http parameter pollution -> /health?role=user&ro
 app.use(globalLimiter);
 
 app.get("/", (req, res) => {
-  res.json({ message: "NeoDrive API" });
+  res.json({ message: "NeoDrive API Server" });
 });
 
 app.use(routes);
