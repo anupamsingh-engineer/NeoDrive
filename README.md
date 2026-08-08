@@ -12,14 +12,15 @@ own README, docs, and deployment path — this file is the map between them.
 
 ## Demo
 
-| Product walkthrough |
-
+**Product walkthrough**
 
 https://github.com/user-attachments/assets/2ba2157d-5548-42a4-bbf7-274e0b63a1b4
 
+**Architecture walkthrough**
 
- | Architecture walkthrough |
-https://drive.google.com/thumbnail?id=1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H&sz=w1000)](https://drive.google.com/file/d/1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H/view
+[![Architecture demo video](https://drive.google.com/thumbnail?id=1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H&sz=w1000)](https://drive.google.com/file/d/1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H/view)
+
+_(hosted on Google Drive — too large for GitHub's video attachment limit; click to watch)_
 
 
 ## How it fits together
