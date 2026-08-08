@@ -9,6 +9,7 @@ import routes from "./src/routes/index.js";
 import webhookRoutes from "./src/routes/webhook.routes.js";
 import { requestContextMiddleware } from "./src/middlewares/requestContext.middleware.js";
 import { httpLoggerMiddleware } from "./src/middlewares/httpLogger.middleware.js";
+import { bodyLoggerMiddleware } from "./src/middlewares/bodyLogger.middleware.js";
 import { metricsMiddleware } from "./src/middlewares/metrics.middleware.js";
 import { globalLimiter } from "./src/middlewares/rateLimit.middleware.js";
 import { notFoundMiddleware } from "./src/middlewares/notFound.middleware.js";
@@ -46,6 +47,7 @@ app.use("/webhooks", webhookRoutes);
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(bodyLoggerMiddleware);
 app.use(mongoSanitize());
 app.use(hpp()); // prevent from http parameter pollution -> /health?role=user&role=admin -> req.query.role = [user,admin] but with hpp only last or fast will be passed based on conf like user or admin 
 app.use(globalLimiter);
