@@ -1,3 +1,7 @@
+
+
+
+
 # NeoDrive
 
 A Google-Drive-style file storage app — React frontend, Node/Express backend, direct-to-S3
@@ -8,12 +12,12 @@ own README, docs, and deployment path — this file is the map between them.
 
 ## Demo
 
-| Product walkthrough | Architecture walkthrough |
-|---|---|
-| [![Product demo video](https://drive.google.com/thumbnail?id=1PwmXRT2v2z9mnZ46Cwt4PJQ9LLvCVpNm&sz=w1000)](https://drive.google.com/file/d/1PwmXRT2v2z9mnZ46Cwt4PJQ9LLvCVpNm/view) | [![Architecture demo video](https://drive.google.com/thumbnail?id=1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H&sz=w1000)](https://drive.google.com/file/d/1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H/view) |
+| Product walkthrough
+https://github.com/user-attachments/assets/2ba2157d-5548-42a4-bbf7-274e0b63a1b4
 
-Click a thumbnail to watch on Google Drive (GitHub doesn't support autoplaying or embedding
-video players directly in a README).
+ | Architecture walkthrough |
+https://drive.google.com/thumbnail?id=1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H&sz=w1000)](https://drive.google.com/file/d/1YF8-X5a8wxpagEOA-dA0iYF4nyTSeI6H/view
+
 
 ## How it fits together
 
