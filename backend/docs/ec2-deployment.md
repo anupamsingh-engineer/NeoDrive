@@ -339,9 +339,32 @@ real URL you can just open in a browser.
 Verify: `https://metric.neodrive.anupamsingh.xyz` should show Grafana's login page (not a
 dashboard directly — anonymous access is off, log in as `admin` with `GRAFANA_ADMIN_PASSWORD`).
 
-If you later want to proxy Prometheus (`:9090`) or Jaeger (`:16686`) the same way, be aware
-neither has any built-in login of its own — put nginx `auth_basic` in front of those specifically,
-since there's no Grafana-style admin password to fall back on.
+If you later want to proxy Prometheus (`:9090`) the same way, be aware it has no built-in login of
+its own — put nginx `auth_basic` in front of it, same as step 11 does for Jaeger below.
+
+---
+
+## 11. (Optional) Expose Jaeger via traces.neodrive.anupamsingh.xyz
+
+Same idea as step 10, for the trace viewer. **Jaeger has no login of its own at all** — unlike
+Grafana, there's no admin-password fallback, so nginx's `auth_basic` is the *only* thing gating
+access once this is public. Don't skip it, and don't reuse this rule to also expose Prometheus/
+Jaeger's port directly in the EC2 security group "to make it easier" — the loopback binding in
+`docker-compose.yml` plus this nginx layer is the intended path in, not a firewall rule opening
+the raw port to `0.0.0.0/0`.
+
+1. **Create the password file** (one-time):
+   ```bash
+   sudo apt-get install -y apache2-utils
+   sudo htpasswd -c /etc/nginx/.htpasswd-traces admin
+   ```
+2. **DNS** — same as step 2, `Name: traces.neodrive`, pointing at the same EC2 IP.
+3. **nginx** — same as step 7, using
+   [`backend/deploy/nginx/traces.neodrive.anupamsingh.xyz.conf`](../deploy/nginx/traces.neodrive.anupamsingh.xyz.conf).
+4. **TLS** — `sudo certbot --nginx -d traces.neodrive.anupamsingh.xyz`.
+
+Verify: `https://traces.neodrive.anupamsingh.xyz` should prompt for the `auth_basic` username/
+password *before* showing anything, then land on the Jaeger UI.
 
 ---
 
