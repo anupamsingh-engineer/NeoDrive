@@ -6,6 +6,23 @@ import { getRequestId, getUserId } from "./requestContext.js";
 const logger = pino({
   level: env.observability.logLevel,
   base: { service: env.observability.otelServiceName },
+  // req.body is logged for debugging (see httpLogger.middleware.js) - these fields carry raw
+  // credentials/secrets and must never reach disk even if a new sensitive field gets added to a
+  // request schema without anyone remembering to update this list, so keep it generous.
+  redact: {
+    paths: [
+      "req.body.password",
+      "req.body.otp",
+      "req.body.token",
+      "req.body.verificationToken",
+      "req.body.idToken",
+      "req.body.refreshToken",
+      "req.body.accessToken",
+      "req.headers.authorization",
+      "req.headers.cookie",
+    ],
+    censor: "[Redacted]",
+  },
   transport: env.isProduction
     ? undefined
     : { target: "pino-pretty", options: { colorize: true, translateTime: "SYS:standard" } },
