@@ -29,6 +29,14 @@ export function errorHandlerMiddleware(err, req, res, next) {
     return res.status(401).json({ success: false, message: "Invalid or expired token" });
   }
 
+  // body-parser (and other http-errors-based middleware) sets `expose: true` specifically to
+  // mark a message as safe to show clients, alongside a real 4xx statusCode - e.g. malformed
+  // JSON in a request body is the client's mistake, not a server bug, so it shouldn't be forced
+  // to 500 / logged as "Unhandled error" the way an actual crash is.
+  if (err.expose && err.statusCode >= 400 && err.statusCode < 500) {
+    return res.status(err.statusCode).json({ success: false, message: err.message });
+  }
+
   logger.error({ err }, "Unhandled error");
   return res.status(500).json({
     success: false,
