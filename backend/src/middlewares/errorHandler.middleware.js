@@ -1,10 +1,24 @@
+import { trace, SpanStatusCode } from "@opentelemetry/api";
 import { ApiError } from "../errors/ApiError.js";
 import logger from "../config/logger.js";
 import env from "../config/env.js";
 
+// Auto-instrumentation sets `error=true`/`http.status_code` on the span for a 5xx response, but
+// never attaches the actual JS error - without this, Jaeger only ever tells you THAT a request
+// failed, never WHY, and every message/stack trace lookup has to fall back to the logs.
+function recordSpanException(err) {
+  const span = trace.getActiveSpan();
+  if (!span) return;
+  span.recordException(err);
+  span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+}
+
 export function errorHandlerMiddleware(err, req, res, next) {
   if (err instanceof ApiError) {
-    if (err.statusCode >= 500) logger.error({ err }, err.message);
+    if (err.statusCode >= 500) {
+      recordSpanException(err);
+      logger.error({ err }, err.message);
+    }
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
@@ -37,6 +51,7 @@ export function errorHandlerMiddleware(err, req, res, next) {
     return res.status(err.statusCode).json({ success: false, message: err.message });
   }
 
+  recordSpanException(err);
   logger.error({ err }, "Unhandled error");
   return res.status(500).json({
     success: false,
