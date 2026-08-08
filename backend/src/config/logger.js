@@ -2,23 +2,16 @@ import pino from "pino";
 import { trace } from "@opentelemetry/api";
 import env from "./env.js";
 import { getRequestId, getUserId } from "./requestContext.js";
+import { SENSITIVE_BODY_FIELDS } from "../utils/sensitiveFields.js";
 
 const logger = pino({
   level: env.observability.logLevel,
   base: { service: env.observability.otelServiceName },
-  // req.body is logged for debugging (see bodyLogger.middleware.js) - these fields carry raw
-  // credentials/secrets and must never reach disk even if a new sensitive field gets added to a
-  // request schema without anyone remembering to update this list, so keep it generous.
+  // req.body is logged for debugging (see bodyLogger.middleware.js) - built from the same
+  // SENSITIVE_BODY_FIELDS list bodyLoggerMiddleware uses for the Jaeger span attribute, so the
+  // two can't silently drift apart when a new sensitive field is added later.
   redact: {
-    paths: [
-      "body.password",
-      "body.otp",
-      "body.token",
-      "body.verificationToken",
-      "body.idToken",
-      "body.refreshToken",
-      "body.accessToken",
-    ],
+    paths: SENSITIVE_BODY_FIELDS.map((field) => `body.${field}`),
     censor: "[Redacted]",
   },
   transport: env.isProduction
