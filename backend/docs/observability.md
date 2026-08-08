@@ -109,42 +109,86 @@ an ID from a log line (see "Tracing a request end-to-end" below).
 
 ## Request lifecycle — how logs, traces, and metrics combine
 
-One request, start to finish, across all three systems:
+### The three IDs, and exactly where each is born
 
-1. `node --import ./instrumentation.js server.js` — OTel instrumentation patches `http`/
-   `mongodb`/`ioredis` etc. before anything else loads.
-2. Request hits the process — OTel's HTTP instrumentation opens the **root span**, generating
-   `traceId`.
-3. `app.js` middleware chain: `requestContextMiddleware` mints `requestId` (`AsyncLocalStorage`) →
-   `httpLoggerMiddleware`/`metricsMiddleware` arm their end-of-request hooks → body gets parsed →
-   `bodyLoggerMiddleware` logs the redacted body and tags it onto the root span → your route
-   handler runs, and every DB/Redis call it makes opens a **child span** automatically.
-4. Every `logger.*()` call anywhere in this chain gets `requestId`/`userId`/`traceId`/`spanId`
-   auto-stamped by `mixin()` (`logger.js`) — reading whatever span is active *at that instant*,
-   which may be the root span or a child span depending on where in the code the log call sits.
-5. On error: `recordSpanException()` attaches the exception to the active span; `logger.error()`
-   logs the same error to stdout — both carrying the same `traceId`.
-6. Response goes out with `X-Request-ID` (not `traceId` — that stays server-side, findable via
-   the log line for the same `requestId` if you ever need it from a client-facing bug report).
-7. Independently: completed spans batch-export over OTLP to `jaeger:4318`; log lines go to stdout
-   (captured by Docker, capped per the log-rotation note above); `metricsMiddleware` and friends
-   increment in-process counters that `prometheus` scrapes from `/metrics` every 15s.
+| ID | Created by | When | Lives in |
+|---|---|---|---|
+| `traceId` | OpenTelemetry's HTTP auto-instrumentation | The instant the request hits the Node process, before any of this app's own middleware runs | Every span for this request, and every log line via `mixin()` |
+| `spanId` | OpenTelemetry, fresh one per operation | One for the whole HTTP request (root span), plus a new one for every DB/Redis call an instrumented library makes | Each individual span |
+| `requestId` | This app's own code — `requestContext.middleware.js` | First line of the middleware chain (`app.js:22`) | `AsyncLocalStorage`, echoed as the `X-Request-ID` response header |
 
-Three separate pipelines (logs / traces / metrics), correlated only by the IDs riding along with
-each one — there is no shared datastore between them.
+`traceId`/`spanId` are OpenTelemetry's concept, for connecting spans into a trace. `requestId` is
+this app's own, for connecting log lines to a client-visible header. They travel together only
+because `logger.js`'s `mixin()` reads both and stamps them onto every log line.
 
-### Tracing a request end-to-end
+### The request's journey, step by step
 
-1. **Grafana** (`metric.neodrive.anupamsingh.xyz`) — notice a `5xx`/latency signal, narrow down
-   roughly when and which route.
-2. **Jaeger** (`traces.neodrive.anupamsingh.xyz`) — Search → `error=true` → match the time window
-   → click the trace. Root span's **Tags** has the request payload and outcome; the **waterfall**
-   shows every DB/Redis step with timing; a failing span's **Logs** has the exception, if one
-   exists past this point in the request.
-3. **Logs** (`docker compose logs app worker | grep <traceId>`) — the reliable fallback for
-   anything Jaeger didn't capture (pre-routing crashes), or the starting point if you already have
-   an ID from somewhere else (a `requestId` from a user's bug report → find it in logs →
-   read off the `traceId` on that same line → paste into Jaeger's Trace ID search).
+1. **Node process starts** — `node --import ./instrumentation.js server.js`. The `--import` flag
+   matters: it loads OpenTelemetry's instrumentation *before* any other module, so when
+   `mongodb`/`ioredis`/`http`/`express` get `import`ed afterward, OTel has already patched them to
+   auto-create spans.
+2. **Request arrives** → nginx (host) → `app` container `127.0.0.1:4000`. OTel's HTTP
+   instrumentation wraps this at the lowest level and opens the **root span** — this is where
+   `traceId` is generated (or continued, if a caller passed trace-context headers, which nothing
+   does in this setup since it isn't calling other traced services).
+3. **The `app.js` middleware chain runs**, in this order:
+   - `requestContextMiddleware` (`app.js:22`) — generates `requestId` (or reuses the
+     `x-request-id` header), opens `AsyncLocalStorage`, stores it. Echoes `X-Request-ID` back.
+   - `httpLoggerMiddleware` (pino-http) — sets up the "request completed" log line that fires when
+     the response ends.
+   - `metricsMiddleware` — starts a timer; on response finish, increments
+     `http_requests_total`/`http_request_duration_seconds`.
+   - `helmet`, `cors`, `cookieParser` — security/parsing, not observability-relevant.
+   - `express.json()` — parses the body.
+   - `bodyLoggerMiddleware` (`app.js:48`) — logs the redacted body via pino, and calls
+     `trace.getActiveSpan().setAttribute("http.request.body", ...)` — at this point in the chain,
+     the "active span" is still the root span, since no DB/Redis calls have happened yet.
+   - `globalLimiter` — an `ioredis` call under the hood (the `EVALSHA` span visible in Jaeger) —
+     OTel's `ioredis` instrumentation auto-creates a **child span**, nested under the root span,
+     same `traceId`, new `spanId`.
+   - **The route handler runs** — every `mongodb`/`ioredis` call inside a controller/service (e.g.
+     `mongodb.find` on `users`) auto-creates another child span the same way. This is *why* the
+     Jaeger waterfall shows DB calls without any tracing code written by hand — it's the
+     driver-level instrumentation doing it.
+4. **Every `logger.*()` call, anywhere, during all of this** — `mixin()` (`logger.js:27-39`) runs
+   and reads: `requestId` from `AsyncLocalStorage`, `userId` if `requireAuth` already resolved it,
+   and `traceId`/`spanId` from `trace.getActiveSpan()?.spanContext()` — whatever span happens to
+   be active at that exact moment the log call fires. This is why a log line mid-request can show
+   a *child* span's ID, while the "request completed" line at the end shows the root span's ID
+   again.
+5. **If something throws** — `errorHandlerMiddleware` catches it. For a real `5xx`:
+   `recordSpanException(err)` (`errorHandler.middleware.js:9-14`) calls `span.recordException(err)`
+   — attaching the message/stack as a **span event** on the active span — then
+   `logger.error({err}, ...)` logs the same thing to stdout, both carrying the same `traceId`.
+6. **Response sent** — client gets `X-Request-ID` back (not `traceId` — that stays server-side
+   only).
+
+### Where each piece actually ends up
+
+- **Logs** → stdout → Docker's `json-file` driver (capped at 50MB/container, see the log-rotation
+  note above) → `docker compose logs`
+- **Spans** → batched by the OTel SDK → exported over OTLP/HTTP to `http://jaeger:4318` (hardcoded
+  in `docker-compose.yml`'s `environment:` block) → stored/rendered by the `jaeger` container
+- **Metrics** → accumulate in-process → exposed at `GET /metrics` → scraped every 15s by
+  `prometheus` (`prometheus.yml`) → queried by Grafana's dashboard panels
+
+Three completely separate pipelines, correlated only by the IDs riding along with each one — there
+is no shared datastore between them.
+
+### Tracing any request, combining all of it
+
+1. **Grafana** (`metric.neodrive.anupamsingh.xyz`) → notice a `5xx`/latency spike → know roughly
+   *when* and *which route*.
+2. **Jaeger** (`traces.neodrive.anupamsingh.xyz`) → Search → `error=true` in that window → click
+   the trace → the root span's **Tags** has `http.request.body`, status, and target; the
+   **waterfall** shows every DB/Redis child span with timing; if it's a real exception, the
+   failing span's **Logs** tab has the message/stack directly.
+3. **Logs** (`docker compose logs app worker | grep <traceId>`) — only needed if Jaeger didn't
+   capture enough (e.g. a pre-routing crash like a `body-parser` JSON error, which happens before
+   any span exists) — the full log line, guaranteed to have the real error, every time.
+
+Every layer shares the same `traceId` — that's the thread connecting all three systems back to one
+real request.
 
 ## Health vs. readiness
 
